@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+requests
+beautifulsoup4
+sqlalchemy
+psycopg[binary]
+pgvector
+mwparserfromhell
