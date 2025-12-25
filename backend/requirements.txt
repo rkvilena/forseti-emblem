@@ -1,8 +1,22 @@
+# Web Framework
 fastapi
 uvicorn[standard]
+
+# HTTP Client
 requests
+
+# HTML/Wikitext Parsing
 beautifulsoup4
+mwparserfromhell
+
+# Database
 sqlalchemy
 psycopg[binary]
 pgvector
-mwparserfromhell
+
+# Configuration
+pydantic-settings
+python-dotenv
+
+# OpenAI
+openai

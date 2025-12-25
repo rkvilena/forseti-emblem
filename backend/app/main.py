@@ -1,14 +1,92 @@
+"""
+Fire Emblem RAG Backend - Main Application Entry Point
+"""
+
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
+from .config import settings
+from .db import check_db_connection, init_db, pgvector_available
 from .routes import wiki
 
 
-app = FastAPI(title="Fire Emblem RAG Backend")
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper()),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan handler.
+    
+    Runs on startup and shutdown.
+    """
+    # Startup
+    logger.info(f"Starting Fire Emblem RAG Backend in {settings.environment} mode")
+    logger.info(f"Debug mode: {settings.debug}")
+    
+    # Check database connection
+    if check_db_connection():
+        logger.info("Database connection successful")
+        # Initialize database tables (will skip if pgvector is missing)
+        try:
+            init_db()
+        except Exception as e:
+            logger.warning(f"Database initialization skipped/failed: {e}")
+    else:
+        logger.warning("Database connection failed - some features may not work")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down Fire Emblem RAG Backend")
+
+
+app = FastAPI(
+    title="Fire Emblem RAG Backend",
+    description="RAG-powered API for Fire Emblem game chapter information",
+    version="0.1.0",
+    lifespan=lifespan,
+)
 
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok"}
+    """Health check endpoint."""
+    db_status = "connected" if check_db_connection() else "disconnected"
+    vector_status = "available" if (db_status == "connected" and pgvector_available()) else "missing"
+    return {
+        "status": "ok",
+        "environment": settings.environment,
+        "database": db_status,
+        "pgvector": vector_status,
+    }
+
+
+@app.get("/config")
+def get_config() -> dict:
+    """
+    Get current configuration (non-sensitive values only).
+    
+    Useful for debugging configuration issues.
+    """
+    return {
+        "environment": settings.environment,
+        "database_host": settings.database_host,
+        "database_port": settings.database_port,
+        "database_name": settings.database_name,
+        "openai_embedding_model": settings.openai_embedding_model,
+        "openai_chat_model": settings.openai_chat_model,
+        "openai_api_key_set": bool(settings.openai_api_key),
+        "debug": settings.debug,
+        "log_level": settings.log_level,
+    }
 
 
 app.include_router(wiki.router)

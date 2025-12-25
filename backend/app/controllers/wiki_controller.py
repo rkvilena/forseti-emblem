@@ -1,5 +1,8 @@
-from typing import Dict
+from typing import Any, Dict
 
+from sqlalchemy.orm import Session
+
+from ..chapter_ingest import ingest_chapter_to_db
 from ..mediawiki_client import MediaWikiClient
 from ..parsers import (
     extract_tables_as_json,
@@ -98,4 +101,47 @@ def get_single_page_wikitext(
         "pageid": page["pageid"],
         "title": page["title"],
         "chapter": chapter,
+    }
+
+
+def ingest_chapter_from_wikitext(
+    db: Session,
+    title: str,
+    generate_embeddings: bool = True,
+) -> Dict[str, Any]:
+    """
+    Fetch a chapter from MediaWiki, parse it, and store in the database.
+    
+    Args:
+        db: Database session
+        title: Page title to fetch
+        generate_embeddings: Whether to generate OpenAI embeddings
+        
+    Returns:
+        Dict with ingestion results
+    """
+    # Fetch wikitext from MediaWiki
+    page = client.fetch_page_wikitext(title=title)
+    wikitext = page["wikitext"]
+    pageid = page["pageid"]
+    
+    # Parse the wikitext
+    chapter_data = parse_chapter_wikitext(wikitext)
+    
+    # Ingest into database
+    chapter = ingest_chapter_to_db(
+        db=db,
+        pageid=pageid,
+        title=page["title"],
+        chapter_data=chapter_data,
+        generate_embeddings=generate_embeddings,
+    )
+    
+    return {
+        "status": "success",
+        "pageid": pageid,
+        "title": page["title"],
+        "chapter_id": chapter.id,
+        "chunks_count": len(chapter.chunks),
+        "chapter_data": chapter_data,
     }

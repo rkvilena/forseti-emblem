@@ -3,3 +3,4 @@ backend/.venv
 .vscode/settings.json
 .vscode/project_notes.txt
 **/__pycache__/
+**/.env
