@@ -1,0 +1,50 @@
+# Local development (FastAPI + Postgres+pgvector)
+# Run from repo root:
+#   docker compose -f infrastructure/compose/local.dev.yml up --build
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: forsetiemblem-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: forsetiemblem
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d forsetiemblem"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    container_name: forsetiemblem-api
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: forsetiemblem
+      ENVIRONMENT: local
+      RELOAD: "true"
+      DEBUG: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/code/backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

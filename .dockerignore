@@ -1,0 +1,22 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+
+# Python envs
+backend/.venv/
+**/.venv/
+
+# Git
+.git/
+
+# Local env files
+**/.env
+
+# Frontend (future)
+frontend/node_modules/
+frontend/dist/
+
+# Misc
+*.log

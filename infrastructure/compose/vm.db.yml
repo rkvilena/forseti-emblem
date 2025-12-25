@@ -1,0 +1,28 @@
+# VM database only (Postgres + pgvector)
+# Intended to run on a Compute Engine VM.
+#
+# Usage on the VM:
+#   docker compose -f vm.db.yml up -d
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: forsetiemblem-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: forsetiemblem
+    ports:
+      # For safer setups, bind to 127.0.0.1 and connect via SSH tunnel / private network.
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d forsetiemblem"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
