@@ -9,7 +9,7 @@ from fastapi import FastAPI
 
 from .config import settings
 from .db import check_db_connection, init_db, pgvector_available
-from .routes import wiki
+from .routes import chat, wiki
 
 
 # Configure logging
@@ -90,5 +90,6 @@ def get_config() -> dict:
 
 
 app.include_router(wiki.router)
+app.include_router(chat.router)
 
 

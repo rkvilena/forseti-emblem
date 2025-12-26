@@ -3,6 +3,7 @@
 #
 # Usage on the VM:
 #   docker compose -f vm.db.yml up -d
+#   docker compose -f infrastructure/compose/vm.db.yml up -d
 
 services:
   db:

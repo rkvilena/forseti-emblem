@@ -3,12 +3,18 @@ from sqlalchemy.orm import Session
 
 from ..controllers import wiki_controller
 from ..db import get_db
+from ..schemas.wiki import (
+    WikiCategoryPagesResponse,
+    WikiIngestResponse,
+    WikiPageHtmlResponse,
+    WikiPageWikitextResponse,
+)
 
 
 router = APIRouter()
 
 
-@router.get("/wiki/category/{category_name}")
+@router.get("/wiki/category/{category_name}", response_model=WikiCategoryPagesResponse)
 def get_category_pages(
     category_name: str,
     limit: int = Query(10, ge=1, le=100),
@@ -25,7 +31,7 @@ def get_category_pages(
     )
 
 
-@router.get("/wiki/page/{title}")
+@router.get("/wiki/page/{title}", response_model=WikiPageHtmlResponse)
 def get_single_page(
     title: str,
     include_html: bool = Query(False),
@@ -38,7 +44,7 @@ def get_single_page(
     )
 
 
-@router.get("/wiki/page/{title}/wikitext")
+@router.get("/wiki/page/{title}/wikitext", response_model=WikiPageWikitextResponse)
 def get_page_wikitext(
     title: str,
     raw: bool = Query(False),
@@ -49,7 +55,7 @@ def get_page_wikitext(
     )
 
 
-@router.post("/wiki/page/{title}/ingest")
+@router.post("/wiki/page/{title}/ingest", response_model=WikiIngestResponse)
 def ingest_chapter(
     title: str,
     generate_embeddings: bool = Query(True, description="Generate OpenAI embeddings for chunks"),

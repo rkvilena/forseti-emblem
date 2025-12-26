@@ -87,8 +87,8 @@ def chat_completion(
     system_prompt: str,
     user_message: str,
     context: str | None = None,
-    temperature: float = 0.7,
-) -> str:
+    temperature: float = 0.3,
+) -> tuple[str, dict[str, int] | None]:
     """
     Generate a chat completion with optional RAG context.
     
@@ -121,7 +121,20 @@ def chat_completion(
         temperature=temperature,
     )
     
-    return response.choices[0].message.content or ""
+    text = response.choices[0].message.content or ""
+
+    usage_obj = getattr(response, "usage", None)
+    usage: dict[str, int] | None = None
+    if usage_obj is not None:
+        candidate: dict[str, Any] = {
+            "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
+            "completion_tokens": getattr(usage_obj, "completion_tokens", None),
+            "total_tokens": getattr(usage_obj, "total_tokens", None),
+        }
+        filtered = {k: v for k, v in candidate.items() if isinstance(v, int)}
+        usage = filtered or None
+
+    return text, usage
 
 
 # Default system prompt for Fire Emblem RAG

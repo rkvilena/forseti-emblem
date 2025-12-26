@@ -1,11 +1,13 @@
-"""
-Application configuration using Pydantic Settings.
+"""Application configuration using Pydantic Settings.
 
-Automatically loads from environment variables and .env files.
-Local development uses .env file, production uses environment variables.
+Loads environment variables and dotenv files.
+
+Important: when running locally, you might execute `uvicorn` from the repo root.
+To keep config deterministic, we always prefer `backend/.env`.
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, computed_field
@@ -15,8 +17,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
+    _BACKEND_DIR = Path(__file__).resolve().parents[1]
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Prefer the backend folder env files regardless of current working directory.
+        # Note: pydantic-settings expects a string/path or a LIST (not a tuple).
+        env_file=[
+            _BACKEND_DIR / ".env",
+            _BACKEND_DIR / ".env.local",
+            ".env",
+        ],
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
