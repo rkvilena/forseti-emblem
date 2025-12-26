@@ -1,4 +1,4 @@
-# Local development (FastAPI + Postgres+pgvector)
+# Local development (FastAPI + Next.js + Postgres+pgvector)
 # Run from repo root:
 #   docker compose -f infrastructure/compose/local.dev.yml up --build
 
@@ -23,11 +23,11 @@ services:
 
   api:
     build:
-      context: .
+      context: ../..
       dockerfile: backend/Dockerfile.dev
     container_name: forsetiemblem-api
     env_file:
-      - backend/.env
+      - ../../backend/.env
     environment:
       DATABASE_HOST: db
       DATABASE_PORT: 5432
@@ -40,11 +40,29 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/code/backend
+      - ../../backend:/code/backend
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+
+  web:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile.dev
+    container_name: forsetiemblem-web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    restart: unless-stopped
+    depends_on:
+      - api
 
 volumes:
   pgdata:

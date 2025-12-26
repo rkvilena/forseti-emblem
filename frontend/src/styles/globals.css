@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+  }
+
+  html,
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-surface-base text-text-primary antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-base;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-muted;
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-surface-base;
+  }
+}
+
+@layer components {
+  /* Button variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 
+           px-4 py-2 rounded-lg font-medium
+           transition-all duration-200 ease-out
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white
+           hover:bg-primary-500 hover:shadow-glow-primary
+           active:bg-primary-700;
+  }
+
+  .btn-accent {
+    @apply btn bg-accent-500 text-surface-base
+           hover:bg-accent-400 hover:shadow-glow-accent
+           active:bg-accent-600;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-text-secondary
+           hover:bg-surface-muted hover:text-text-primary;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-lg text-text-secondary
+           hover:bg-surface-muted hover:text-text-primary
+           transition-colors duration-200;
+  }
+
+  /* Card styling */
+  .card {
+    @apply bg-surface-elevated rounded-xl border border-surface-border
+           shadow-lg;
+  }
+
+  /* Input styling */
+  .input {
+    @apply w-full px-4 py-3 rounded-lg
+           bg-surface-muted border border-surface-border
+           text-text-primary placeholder:text-text-muted
+           focus:border-primary-500 focus:ring-1 focus:ring-primary-500
+           transition-colors duration-200;
+  }
+
+  /* Message bubbles */
+  .message-user {
+    @apply bg-primary-600/20 border border-primary-600/30 rounded-2xl rounded-br-md;
+  }
+
+  .message-assistant {
+    @apply bg-surface-elevated border border-surface-border rounded-2xl rounded-bl-md;
+  }
+}
+
+@layer utilities {
+  /* Typography utilities */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-400 via-accent-400 to-primary-400 
+           bg-clip-text text-transparent;
+  }
+
+  /* Animation utilities */
+  .animate-typing {
+    animation: typing 1.5s infinite;
+  }
+
+  @keyframes typing {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply bg-surface-elevated/80 backdrop-blur-lg;
+  }
+
+  /* Ember glow effect for Fire Emblem theme */
+  .ember-glow {
+    @apply relative;
+  }
+
+  .ember-glow::before {
+    content: '';
+    border-radius: inherit;
+    @apply absolute inset-0
+           bg-gradient-to-r from-crimson-500/0 via-accent-500/20 to-crimson-500/0
+           blur-xl -z-10 opacity-0 transition-opacity duration-500;
+  }
+
+  .ember-glow:hover::before {
+    @apply opacity-100;
+  }
+}

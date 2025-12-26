@@ -1,0 +1,20 @@
+# Frontend Dockerfile (Development)
+# Uses hot reload for fast iteration
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files first for better caching
+COPY frontend/package*.json ./
+
+# Install all dependencies (including devDependencies)
+RUN npm install
+
+# Copy source files (will be overridden by bind mount in docker-compose)
+COPY frontend/ .
+
+EXPOSE 3000
+
+# Run development server with Turbopack
+CMD ["npm", "run", "dev"]

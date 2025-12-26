@@ -3,6 +3,8 @@ substitutions:
 	_AR_REPO: forsetiemblem
 	_BACKEND_SERVICE: forsetiemblem-backend
 	_BACKEND_IMAGE: forsetiemblem-backend
+	_FRONTEND_SERVICE: forsetiemblem-frontend
+	_FRONTEND_IMAGE: forsetiemblem-frontend
 
 options:
 	logging: CLOUD_LOGGING_ONLY
@@ -40,5 +42,39 @@ steps:
 			# Set this to "--no-allow-unauthenticated" if you want private API.
 			- --allow-unauthenticated
 
+	# Build frontend image
+	- name: gcr.io/cloud-builders/docker
+		args:
+			- build
+			- -f
+			- frontend/Dockerfile
+			- --build-arg
+			- NEXT_PUBLIC_API_URL=https://${_BACKEND_SERVICE}-$PROJECT_ID.${_REGION}.run.app
+			- -t
+			- ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_FRONTEND_IMAGE}:$SHORT_SHA
+			- .
+
+	# Push frontend image
+	- name: gcr.io/cloud-builders/docker
+		args:
+			- push
+			- ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_FRONTEND_IMAGE}:$SHORT_SHA
+
+	# Deploy frontend to Cloud Run
+	- name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+		entrypoint: gcloud
+		args:
+			- run
+			- deploy
+			- ${_FRONTEND_SERVICE}
+			- --image
+			- ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_FRONTEND_IMAGE}:$SHORT_SHA
+			- --region
+			- ${_REGION}
+			- --platform
+			- managed
+			- --allow-unauthenticated
+
 images:
 	- ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_BACKEND_IMAGE}:$SHORT_SHA
+	- ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_FRONTEND_IMAGE}:$SHORT_SHA

@@ -6,6 +6,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .db import check_db_connection, init_db, pgvector_available
@@ -53,6 +54,20 @@ app = FastAPI(
     description="RAG-powered API for Fire Emblem game chapter information",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+# CORS configuration for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",      # Local frontend dev
+        "http://127.0.0.1:3000",      # Alternative localhost
+        "http://localhost:8000",      # Same-origin requests
+        # Production URLs will be added via environment or here
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
