@@ -4,7 +4,7 @@
  * ChatInput Component
  * 
  * Text input area for composing and sending chat messages.
- * Features auto-resize textarea and keyboard shortcuts.
+ * Features auto-resize textarea with max height and scrolling.
  */
 
 import { useState, useRef, useCallback, KeyboardEvent, FormEvent } from "react";
@@ -22,6 +22,9 @@ interface ChatInputProps {
   className?: string;
 }
 
+// Max height before showing scrollbar (approximately 4 lines)
+const MAX_TEXTAREA_HEIGHT = 120;
+
 export function ChatInput({
   onSend,
   isLoading = false,
@@ -31,13 +34,23 @@ export function ChatInput({
   const [message, setMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea based on content
+  // Auto-resize textarea based on content up to max height
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
+    // Reset to auto to measure actual content height
     textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    const contentHeight = textarea.scrollHeight;
+    
+    // Apply height with max limit
+    if (contentHeight <= MAX_TEXTAREA_HEIGHT) {
+      textarea.style.height = `${contentHeight}px`;
+      textarea.style.overflowY = "hidden";
+    } else {
+      textarea.style.height = `${MAX_TEXTAREA_HEIGHT}px`;
+      textarea.style.overflowY = "auto";
+    }
   }, []);
 
   const handleSubmit = useCallback(
@@ -53,6 +66,7 @@ export function ChatInput({
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
+        textareaRef.current.style.overflowY = "hidden";
       }
     },
     [message, isLoading, onSend]
@@ -75,62 +89,60 @@ export function ChatInput({
     <form
       onSubmit={handleSubmit}
       className={cn(
-        "relative flex items-end gap-3 p-4",
-        "bg-surface-elevated border-t border-surface-border",
+        "p-4 bg-surface-elevated border-t border-brand-gold/70",
         className
       )}
     >
-      {/* Decorative ember effect on focus */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-primary-500/50 to-transparent" />
-      </div>
+      <div className="relative flex items-end gap-2 max-w-3xl mx-auto">
+        {/* Input container */}
+        <div className="relative flex-1 flex items-end">
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={(e) => {
+              setMessage(e.target.value);
+              adjustTextareaHeight();
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={isLoading}
+            rows={1}
+            className={cn(
+              "w-full resize-none rounded-lg",
+              "px-4 py-3",
+              "bg-surface-muted border border-surface-border",
+              "text-text-primary placeholder:text-text-muted",
+              "focus:outline-none focus:border-brand-teal focus:ring-1 focus:ring-brand-teal",
+              "transition-colors duration-200",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "min-h-[48px]"
+            )}
+            style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
+          />
+        </div>
 
-      <div className="relative flex-1">
-        <textarea
-          ref={textareaRef}
-          value={message}
-          onChange={(e) => {
-            setMessage(e.target.value);
-            adjustTextareaHeight();
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={isLoading}
-          rows={1}
+        {/* Send button - aligned with textarea bottom */}
+        <button
+          type="submit"
+          disabled={!canSubmit}
           className={cn(
-            "w-full resize-none rounded-xl",
-            "px-4 py-3 pr-12",
-            "bg-surface-muted border border-surface-border",
-            "text-text-primary placeholder:text-text-muted",
-            "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500",
-            "transition-colors duration-200",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
-            "min-h-[48px] max-h-[200px]"
+            "flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg",
+            "transition-all duration-200",
+            canSubmit
+              ? "bg-brand-teal text-white hover:bg-brand-green active:scale-95"
+              : "bg-surface-muted text-text-muted cursor-not-allowed"
           )}
-        />
-        
-        {/* Character count indicator */}
-        {message.length > 0 && (
-          <span className="absolute bottom-3 right-14 text-xs text-text-muted">
-            {message.length}
-          </span>
-        )}
+          aria-label="Send message"
+        >
+          <SendIcon className="w-5 h-5" />
+        </button>
       </div>
-
-      <button
-        type="submit"
-        disabled={!canSubmit}
-        className={cn(
-          "flex-shrink-0 p-3 rounded-xl",
-          "transition-all duration-200",
-          canSubmit
-            ? "bg-primary-600 text-white hover:bg-primary-500 hover:shadow-glow-primary active:bg-primary-700"
-            : "bg-surface-muted text-text-muted cursor-not-allowed"
-        )}
-        aria-label="Send message"
-      >
-        <SendIcon className="w-5 h-5" />
-      </button>
+      
+      {/* Helper text */}
+      <p className="text-xs text-text-muted text-center mt-2 opacity-60">
+        Press Enter to send, Shift+Enter for new line
+      </p>
     </form>
   );
 }
+

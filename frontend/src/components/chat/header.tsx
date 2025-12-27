@@ -5,7 +5,9 @@
  */
 
 import { cn } from "@/lib/utils";
-import { TrashIcon, SettingsIcon, SparkleIcon } from "./icons";
+import { TrashIcon, SettingsIcon } from "./icons";
+import { MainLogo } from "@/components/brand/main-logo";
+import { useTheme } from "@/hooks/use-theme";
 
 interface HeaderProps {
   /** Callback to clear chat */
@@ -20,6 +22,8 @@ export function Header({
   hasMessages = false,
   className 
 }: HeaderProps) {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <header
       className={cn(
@@ -32,21 +36,7 @@ export function Header({
     >
       {/* Logo & Title */}
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center border border-primary-500/30">
-            <span className="text-lg font-display font-bold text-white">F</span>
-          </div>
-          {/* Sparkle decoration */}
-          <SparkleIcon className="absolute -top-1 -right-1 w-4 h-4 text-accent-400 animate-pulse-slow" />
-        </div>
-        <div>
-          <h1 className="text-lg font-display font-semibold text-text-primary">
-            Forsetiemblem
-          </h1>
-          <p className="text-xs text-text-muted">
-            Fire Emblem Chapter Assistant
-          </p>
-        </div>
+        <MainLogo />
       </div>
 
       {/* Actions */}
@@ -62,9 +52,10 @@ export function Header({
           </button>
         )}
         <button
+          onClick={toggleTheme}
           className="btn-icon"
-          title="Settings"
-          aria-label="Settings"
+          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
         >
           <SettingsIcon className="w-5 h-5" />
         </button>

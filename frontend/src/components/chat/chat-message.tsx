@@ -37,10 +37,10 @@ export const ChatMessage = memo(function ChatMessage({
       {/* Avatar */}
       <div
         className={cn(
-          "flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center",
+          "flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center",
           isUser 
-            ? "bg-primary-600/20 text-primary-400" 
-            : "bg-accent-500/20 text-accent-400"
+            ? "bg-brand-teal/20 text-brand-teal" 
+            : "bg-brand-green/20 text-brand-green"
         )}
       >
         {isUser ? (
@@ -63,14 +63,15 @@ export const ChatMessage = memo(function ChatMessage({
           <>
             {/* Message text */}
             <div className={cn(
-              "prose prose-invert prose-sm max-w-none",
+              "prose prose-sm max-w-none",
               "prose-p:my-2 prose-p:leading-relaxed",
-              "prose-headings:text-text-primary prose-headings:font-display",
-              "prose-strong:text-accent-400",
-              "prose-code:text-primary-300 prose-code:bg-surface-muted prose-code:px-1 prose-code:rounded",
+              "prose-headings:text-text-primary",
+              "prose-strong:text-brand-teal",
+              "prose-code:text-brand-blue prose-code:bg-surface-muted prose-code:px-1 prose-code:rounded",
               "prose-pre:bg-surface-base prose-pre:border prose-pre:border-surface-border",
               "prose-ul:my-2 prose-li:my-0",
-              "prose-a:text-primary-400 prose-a:no-underline hover:prose-a:underline"
+              "prose-a:text-brand-blue prose-a:no-underline hover:prose-a:underline",
+              "dark:prose-invert"
             )}>
               {isUser ? (
                 <p className="whitespace-pre-wrap break-words">{message.content}</p>

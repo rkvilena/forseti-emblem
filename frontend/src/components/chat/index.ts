@@ -8,4 +8,5 @@ export * from "./chat-container";
 export * from "./typing-indicator";
 export * from "./empty-state";
 export * from "./header";
+export * from "./sidebar";
 export * from "./icons";

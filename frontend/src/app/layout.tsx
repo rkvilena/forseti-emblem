@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
+import { nocturneSerif } from "@/styles/fonts";
 
 export const metadata: Metadata = {
   title: "Forsetiemblem - Fire Emblem Chapter Assistant",
@@ -24,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning className={`dark ${nocturneSerif.variable}`}>
       <body className="min-h-screen bg-surface-base antialiased">
         {children}
       </body>

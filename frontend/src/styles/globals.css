@@ -1,8 +1,44 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,600&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  /* Palette (from provided image) */
+  --brand-purple: 59 50 101;
+  --brand-blue: 54 106 156;
+  --brand-teal: 11 71 46;
+  --brand-green: 68 198 154;
+  --brand-lime: 120 244 124;
+  /* Gold chrome (borders/outlines) */
+  --brand-gold: 212 175 55;
+  --brand-gold-dark: 126 94 28;
+  --brand-white: 255 255 255;
+  --brand-black: 6 8 14;
+
+  /* Light mode surfaces/text */
+  --surface-base: 248 250 252;
+  --surface-elevated: 255 255 255;
+  --surface-muted: 241 245 249;
+  --surface-border: 226 232 240;
+
+  --text-primary: 15 23 42;
+  --text-secondary: 51 65 85;
+  --text-muted: 148 163 184;
+}
+
+/* Dark mode overrides */
+html.dark {
+  --surface-base: 15 23 42;
+  --surface-elevated: 30 41 59;
+  --surface-muted: 51 65 85;
+  --surface-border: 71 85 105;
+
+  --text-primary: 248 250 252;
+  --text-secondary: 226 232 240;
+  --text-muted: 148 163 184;
+}
 
 @layer base {
   * {
@@ -24,12 +60,12 @@
 
   /* Custom scrollbar styling */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-surface-base;
+    @apply bg-transparent;
   }
 
   ::-webkit-scrollbar-thumb {
@@ -42,29 +78,27 @@
 
   /* Focus styles */
   *:focus-visible {
-    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-surface-base;
+    @apply outline-none ring-2 ring-brand-teal ring-offset-2 ring-offset-surface-base;
+  }
+
+  .font-brand {
+    font-family: var(--font-brand), 'Cormorant Garamond', 'Cinzel', Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
   }
 }
-
 @layer components {
   /* Button variants */
   .btn {
     @apply inline-flex items-center justify-center gap-2 
-           px-4 py-2 rounded-lg font-medium
+           px-4 py-2 rounded-md font-medium
            transition-all duration-200 ease-out
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-primary {
-    @apply btn bg-primary-600 text-white
-           hover:bg-primary-500 hover:shadow-glow-primary
-           active:bg-primary-700;
-  }
-
-  .btn-accent {
-    @apply btn bg-accent-500 text-surface-base
-           hover:bg-accent-400 hover:shadow-glow-accent
-           active:bg-accent-600;
+    @apply btn bg-brand-teal text-white
+           hover:bg-brand-green;
   }
 
   .btn-ghost {
@@ -73,15 +107,14 @@
   }
 
   .btn-icon {
-    @apply p-2 rounded-lg text-text-secondary
+    @apply p-2 rounded-md text-text-secondary
            hover:bg-surface-muted hover:text-text-primary
            transition-colors duration-200;
   }
 
   /* Card styling */
   .card {
-    @apply bg-surface-elevated rounded-xl border border-surface-border
-           shadow-lg;
+    @apply bg-surface-elevated rounded-lg border border-surface-border;
   }
 
   /* Input styling */
@@ -89,24 +122,24 @@
     @apply w-full px-4 py-3 rounded-lg
            bg-surface-muted border border-surface-border
            text-text-primary placeholder:text-text-muted
-           focus:border-primary-500 focus:ring-1 focus:ring-primary-500
+           focus:border-brand-teal focus:ring-1 focus:ring-brand-teal
            transition-colors duration-200;
   }
 
   /* Message bubbles */
   .message-user {
-    @apply bg-primary-600/20 border border-primary-600/30 rounded-2xl rounded-br-md;
+    @apply bg-brand-teal/10 border border-brand-teal/20 rounded-lg rounded-br-sm;
   }
 
   .message-assistant {
-    @apply bg-surface-elevated border border-surface-border rounded-2xl rounded-bl-md;
+    @apply bg-surface-elevated border border-surface-border rounded-lg rounded-bl-sm;
   }
 }
 
 @layer utilities {
   /* Typography utilities */
   .text-gradient {
-    @apply bg-gradient-to-r from-primary-400 via-accent-400 to-primary-400 
+    @apply bg-gradient-to-r from-brand-lime to-brand-blue 
            bg-clip-text text-transparent;
   }
 
@@ -120,25 +153,17 @@
     50% { opacity: 1; }
   }
 
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   /* Glass effect */
   .glass {
     @apply bg-surface-elevated/80 backdrop-blur-lg;
-  }
-
-  /* Ember glow effect for Fire Emblem theme */
-  .ember-glow {
-    @apply relative;
-  }
-
-  .ember-glow::before {
-    content: '';
-    border-radius: inherit;
-    @apply absolute inset-0
-           bg-gradient-to-r from-crimson-500/0 via-accent-500/20 to-crimson-500/0
-           blur-xl -z-10 opacity-0 transition-opacity duration-500;
-  }
-
-  .ember-glow:hover::before {
-    @apply opacity-100;
   }
 }
