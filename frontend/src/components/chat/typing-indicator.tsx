@@ -18,7 +18,7 @@ export function TypingIndicator({ className }: TypingIndicatorProps) {
         <span
           key={i}
           className={cn(
-            "w-2 h-2 rounded-full bg-accent-500",
+            "w-2 h-2 rounded-full bg-brand-gold",
             "animate-bounce"
           )}
           style={{

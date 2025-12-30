@@ -7,9 +7,6 @@ export const metadata: Metadata = {
   description: "AI-powered assistant for Fire Emblem chapter information. Ask questions about storylines, characters, and strategies.",
   keywords: ["Fire Emblem", "RAG", "AI Assistant", "Gaming", "Strategy"],
   authors: [{ name: "Forsetiemblem" }],
-  icons: {
-    icon: "/favicon.ico",
-  },
 };
 
 export const viewport: Viewport = {

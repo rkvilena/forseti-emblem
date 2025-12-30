@@ -26,6 +26,7 @@ export const ChatMessage = memo(function ChatMessage({
 }: ChatMessageProps) {
   const isUser = message.role === "user";
   const isStreaming = message.isStreaming;
+  const showTyping = Boolean(isStreaming && !message.content);
 
   return (
     <div
@@ -57,7 +58,7 @@ export const ChatMessage = memo(function ChatMessage({
           isUser ? "message-user" : "message-assistant"
         )}
       >
-        {isStreaming ? (
+        {showTyping ? (
           <TypingIndicator />
         ) : (
           <>

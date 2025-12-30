@@ -7,7 +7,7 @@
  * Provides a clean interface for sending messages and managing conversation history.
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { generateId } from "@/lib/utils";
 import type { ChatMessage, RagChatRequest, ChatUsage } from "@/types";
@@ -52,6 +52,84 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
   
   // Store last user message for retry functionality
   const lastUserMessageRef = useRef<string | null>(null);
+  const streamTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (streamTimerRef.current) {
+        window.clearInterval(streamTimerRef.current);
+        streamTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const streamAssistantMessage = useCallback(
+    async (args: {
+      messageId: string;
+      fullText: string;
+      model?: string;
+      usage?: ChatUsage | null;
+    }) => {
+      const { messageId, fullText, model, usage } = args;
+
+      if (streamTimerRef.current) {
+        window.clearInterval(streamTimerRef.current);
+        streamTimerRef.current = null;
+      }
+
+      const text = fullText ?? "";
+      const totalLength = text.length;
+
+      // Keep updates bounded for long responses (~<=200 updates).
+      const chunkSize = Math.min(64, Math.max(8, Math.ceil(totalLength / 200)));
+      const tickMs = 100;
+
+      return await new Promise<void>((resolve) => {
+        let index = 0;
+
+        const push = () => {
+          index = Math.min(totalLength, index + chunkSize);
+          const nextContent = text.slice(0, index);
+
+          setMessages((prev: ChatMessage[]) =>
+            prev.map((msg: ChatMessage) =>
+              msg.id === messageId
+                ? {
+                    ...msg,
+                    content: nextContent,
+                    isStreaming: index < totalLength,
+                    ...(index >= totalLength
+                      ? {
+                          model,
+                          usage,
+                        }
+                      : null),
+                  }
+                : msg
+            )
+          );
+
+          if (index >= totalLength) {
+            if (streamTimerRef.current) {
+              window.clearInterval(streamTimerRef.current);
+              streamTimerRef.current = null;
+            }
+            resolve();
+          }
+        };
+
+        // First tick quickly, so typing indicator doesn't linger.
+        push();
+        if (totalLength <= chunkSize) {
+          resolve();
+          return;
+        }
+
+        streamTimerRef.current = window.setInterval(push, tickMs);
+      });
+    },
+    []
+  );
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isLoading) return;
@@ -92,20 +170,13 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
 
       const response = await apiClient.chatRag(request);
 
-      // Update the placeholder with actual response
-      setMessages((prev: ChatMessage[]) =>
-        prev.map((msg: ChatMessage) =>
-          msg.id === assistantMessageId
-            ? {
-                ...msg,
-                content: response.response,
-                model: response.model,
-                usage: response.usage,
-                isStreaming: false,
-              }
-            : msg
-        )
-      );
+      // Stream the assistant response on the client (backend can stay non-streaming).
+      await streamAssistantMessage({
+        messageId: assistantMessageId,
+        fullText: response.response,
+        model: response.model,
+        usage: response.usage,
+      });
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Unknown error occurred");
       
@@ -128,7 +199,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, topK, temperature, systemPrompt, onError]);
+  }, [isLoading, topK, temperature, systemPrompt, onError, streamAssistantMessage]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
