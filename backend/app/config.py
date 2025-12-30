@@ -69,6 +69,32 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
 
+    # API Docs (Swagger/ReDoc)
+    docs_auth_enabled: bool = Field(
+        default=False,
+        description="Require HTTP Basic Auth for /docs, /redoc, and /openapi.json",
+    )
+    docs_auth_mode: Literal["basic", "session"] = Field(
+        default="basic",
+        description="Docs auth mode: 'basic' uses browser Basic Auth; 'session' uses a signed cookie via /docs-login",
+    )
+    docs_username: str = Field(
+        default="",
+        description="HTTP Basic Auth username for API docs",
+    )
+    docs_password: str = Field(
+        default="",
+        description="HTTP Basic Auth password for API docs",
+    )
+    docs_session_ttl_seconds: int = Field(
+        default=10,
+        description="Docs session cookie TTL in seconds (session auth mode)",
+    )
+    docs_session_secret: str = Field(
+        default="",
+        description="Secret used to sign docs session cookies (required for session auth mode)",
+    )
+
     @computed_field
     @property
     def database_url_computed(self) -> str:

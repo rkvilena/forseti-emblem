@@ -89,7 +89,7 @@ export function ChatInput({
     <form
       onSubmit={handleSubmit}
       className={cn(
-        "p-4 bg-surface-elevated border-t border-brand-gold/70",
+        "p-4 bg-surface-elevated border-t-4 border-brand-gold/70",
         className
       )}
     >

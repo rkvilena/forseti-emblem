@@ -2,6 +2,9 @@
 fastapi
 uvicorn[standard]
 
+# Form parsing (required for /docs-login)
+python-multipart
+
 # HTTP Client
 requests
 

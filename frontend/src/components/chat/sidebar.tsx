@@ -51,7 +51,7 @@ export function Sidebar({ onSelectQuestion, onClearChat, hasMessages = false, cl
       onMouseLeave={() => setIsHovered(false)}
       className={cn(
         "flex flex-col h-full",
-        "bg-surface-elevated border-r border-brand-gold/70",
+        "bg-surface-elevated border-r-4 border-brand-gold/70",
         "transition-all duration-300 ease-out",
         isHovered ? "w-64" : "w-16",
         className
@@ -59,7 +59,7 @@ export function Sidebar({ onSelectQuestion, onClearChat, hasMessages = false, cl
     >
       {/* Top: Logo */}
       <div className={cn(
-        "flex items-center h-16 px-3 border-b border-brand-gold/50",
+        "flex items-center h-16 px-3 border-b-2 border-brand-gold/50",
         isHovered ? "justify-start" : "justify-center"
       )}>
         {isHovered ? (
@@ -106,7 +106,7 @@ export function Sidebar({ onSelectQuestion, onClearChat, hasMessages = false, cl
       </div>
 
       {/* Bottom: Settings & Theme Toggle */}
-        <div className="border-t border-brand-gold/30 p-2 flex flex-col gap-1">
+        <div className="border-t-2 border-brand-gold/50 p-2 flex flex-col gap-1">
           <button
             onClick={onClearChat}
             disabled={!hasMessages}
