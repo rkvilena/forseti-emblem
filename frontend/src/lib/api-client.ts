@@ -1,14 +1,14 @@
 /**
  * API Client for Forsetiemblem Backend
- * 
+ *
  * Centralized API communication layer with error handling.
  */
 
-import type { 
-  ChatResponse, 
-  RagChatRequest, 
+import type {
+  ChatResponse,
+  RagChatRequest,
   HealthResponse,
-  ApiError 
+  ApiError,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -20,7 +20,7 @@ export class ApiClientError extends Error {
   constructor(
     message: string,
     public status: number,
-    public detail?: string
+    public detail?: string,
   ) {
     super(message);
     this.name = "ApiClientError";
@@ -32,10 +32,10 @@ export class ApiClientError extends Error {
  */
 async function apiFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
   const defaultHeaders: HeadersInit = {
     "Content-Type": "application/json",
   };
@@ -51,7 +51,7 @@ async function apiFetch<T>(
 
     if (!response.ok) {
       let errorDetail: string | undefined;
-      
+
       try {
         const errorData = (await response.json()) as ApiError;
         errorDetail = errorData.detail;
@@ -62,7 +62,7 @@ async function apiFetch<T>(
       throw new ApiClientError(
         `API request failed: ${response.status}`,
         response.status,
-        errorDetail
+        errorDetail,
       );
     }
 
@@ -71,12 +71,12 @@ async function apiFetch<T>(
     if (error instanceof ApiClientError) {
       throw error;
     }
-    
+
     // Network or other errors
     throw new ApiClientError(
       "Failed to connect to the API server",
       0,
-      error instanceof Error ? error.message : "Unknown error"
+      error instanceof Error ? error.message : "Unknown error",
     );
   }
 }

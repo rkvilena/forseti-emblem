@@ -1,6 +1,6 @@
 /**
  * TypingIndicator Component
- * 
+ *
  * Animated dots indicating the assistant is typing.
  */
 
@@ -17,10 +17,7 @@ export function TypingIndicator({ className }: TypingIndicatorProps) {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className={cn(
-            "w-2 h-2 rounded-full bg-brand-gold",
-            "animate-bounce"
-          )}
+          className={cn("w-2 h-2 rounded-full bg-brand-gold", "animate-bounce")}
           style={{
             animationDelay: `${i * 150}ms`,
             animationDuration: "0.6s",

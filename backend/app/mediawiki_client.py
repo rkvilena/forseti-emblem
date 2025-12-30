@@ -13,7 +13,9 @@ class MediaWikiClient:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
 
-    def fetch_category_members(self, category_name: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def fetch_category_members(
+        self, category_name: str, limit: int = 50
+    ) -> List[Dict[str, Any]]:
         params: Dict[str, Any] = {
             "action": "query",
             "format": "json",
@@ -89,7 +91,9 @@ class MediaWikiClient:
             "wikitext": wikitext,
         }
 
-    def fetch_pages_in_category(self, category_name: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def fetch_pages_in_category(
+        self, category_name: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         members = self.fetch_category_members(category_name=category_name, limit=limit)
 
         pages: List[Dict[str, Any]] = []

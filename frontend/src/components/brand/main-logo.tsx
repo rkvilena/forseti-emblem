@@ -17,7 +17,7 @@ export function MainLogo({ className, variant = "default" }: MainLogoProps) {
       className={cn(
         "font-brand relative inline-block select-none whitespace-nowrap bg-gradient-to-r from-brand-lime to-brand-blue bg-clip-text text-transparent px-1",
         isWatermark ? "text-4xl sm:text-5xl" : "text-xl",
-        className
+        className,
       )}
       style={{ lineHeight: 1.1 }}
     >
@@ -34,7 +34,7 @@ export function MainLogoIcon({ className }: { className?: string }) {
     <span
       className={cn(
         "font-brand relative inline-block select-none text-2xl bg-gradient-to-r from-brand-lime to-brand-blue bg-clip-text text-transparent px-1",
-        className
+        className,
       )}
       style={{ lineHeight: 1.1 }}
     >

@@ -27,7 +27,9 @@ export function useTheme() {
       return;
     }
 
-    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+    const prefersDark = window.matchMedia?.(
+      "(prefers-color-scheme: dark)",
+    ).matches;
     const initial: ThemeMode = prefersDark ? "dark" : "light";
     setTheme(initial);
     applyThemeToDocument(initial);

@@ -2,7 +2,7 @@
 
 /**
  * ChatContainer Component
- * 
+ *
  * Main container for the chat interface.
  * Handles message list display, auto-scrolling, and empty state.
  */
@@ -40,7 +40,7 @@ export function ChatContainer({
       className={cn(
         "flex-1 overflow-y-auto",
         "scrollbar-thin scrollbar-thumb-surface-border",
-        className
+        className,
       )}
     >
       {isEmpty ? (
@@ -50,7 +50,7 @@ export function ChatContainer({
           {messages.map((message) => (
             <ChatMessage key={message.id} message={message} />
           ))}
-          
+
           {/* Scroll anchor */}
           <div className="h-4" aria-hidden="true" />
         </div>

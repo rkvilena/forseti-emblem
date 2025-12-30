@@ -34,50 +34,50 @@ def get_openai_client() -> OpenAI:
 def create_embedding(text: str) -> list[float]:
     """
     Create embedding vector for a single text.
-    
+
     Args:
         text: The text to embed
-        
+
     Returns:
         List of floats representing the embedding vector (1536 dimensions for text-embedding-3-small)
     """
     client = get_openai_client()
-    
+
     # Clean and truncate text if needed (max ~8000 tokens for embedding models)
     text = text.strip()
     if not text:
         raise ValueError("Cannot create embedding for empty text")
-    
+
     response = client.embeddings.create(
         model=settings.openai_embedding_model,
         input=text,
     )
-    
+
     return response.data[0].embedding
 
 
 def create_embeddings_batch(texts: list[str]) -> list[list[float]]:
     """
     Create embeddings for multiple texts in a single API call.
-    
+
     Args:
         texts: List of texts to embed
-        
+
     Returns:
         List of embedding vectors
     """
     client = get_openai_client()
-    
+
     # Filter out empty texts
     cleaned_texts = [t.strip() for t in texts if t.strip()]
     if not cleaned_texts:
         return []
-    
+
     response = client.embeddings.create(
         model=settings.openai_embedding_model,
         input=cleaned_texts,
     )
-    
+
     # Sort by index to maintain order
     sorted_data = sorted(response.data, key=lambda x: x.index)
     return [item.embedding for item in sorted_data]
@@ -91,36 +91,36 @@ def chat_completion(
 ) -> tuple[str, dict[str, int] | None]:
     """
     Generate a chat completion with optional RAG context.
-    
+
     Args:
         system_prompt: System message defining assistant behavior
         user_message: User's question or message
         context: Optional context from retrieved documents
         temperature: Sampling temperature (0-2)
-        
+
     Returns:
         Assistant's response text
     """
     client = get_openai_client()
-    
-    messages: list[dict[str, Any]] = [
-        {"role": "system", "content": system_prompt}
-    ]
-    
+
+    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+
     if context:
-        messages.append({
-            "role": "user",
-            "content": f"Context information:\n{context}\n\n---\n\nQuestion: {user_message}"
-        })
+        messages.append(
+            {
+                "role": "user",
+                "content": f"Context information:\n{context}\n\n---\n\nQuestion: {user_message}",
+            }
+        )
     else:
         messages.append({"role": "user", "content": user_message})
-    
+
     response = client.chat.completions.create(
         model=settings.openai_chat_model,
         messages=messages,
         temperature=temperature,
     )
-    
+
     text = response.choices[0].message.content or ""
 
     usage_obj = getattr(response, "usage", None)

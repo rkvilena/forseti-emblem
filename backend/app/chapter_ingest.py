@@ -24,12 +24,12 @@ def build_chapter_records_from_wikitext(
 ) -> tuple[Chapter, list[ChapterChunk]]:
     """
     Build Chapter and ChapterChunk records from parsed wikitext data.
-    
+
     Args:
         pageid: MediaWiki page ID
         title: Page title
         chapter_data: Parsed chapter data from parse_chapter_wikitext()
-        
+
     Returns:
         Tuple of (Chapter record, list of ChapterChunk records)
     """
@@ -136,17 +136,17 @@ def ingest_chapter_to_db(
 ) -> Chapter:
     """
     Ingest a chapter into the database.
-    
+
     Creates or updates the Chapter and its ChapterChunks.
     Optionally generates embeddings for each chunk.
-    
+
     Args:
         db: Database session
         pageid: MediaWiki page ID
         title: Page title
         chapter_data: Parsed chapter data
         generate_embeddings: Whether to generate OpenAI embeddings
-        
+
     Returns:
         The created/updated Chapter record
     """
@@ -159,8 +159,10 @@ def ingest_chapter_to_db(
         db.flush()
 
     # Build records
-    chapter_row, chunks = build_chapter_records_from_wikitext(pageid, title, chapter_data)
-    
+    chapter_row, chunks = build_chapter_records_from_wikitext(
+        pageid, title, chapter_data
+    )
+
     # Generate embeddings if requested
     if generate_embeddings and chunks:
         logger.info(f"Generating embeddings for {len(chunks)} chunks...")
@@ -171,17 +173,19 @@ def ingest_chapter_to_db(
                 chunk.embedding = embedding
             logger.info(f"Generated {len(embeddings)} embeddings")
         except Exception as e:
-            logger.warning(f"Failed to generate embeddings: {e}. Chunks will be stored without embeddings.")
-    
+            logger.warning(
+                f"Failed to generate embeddings: {e}. Chunks will be stored without embeddings."
+            )
+
     # Associate chunks with chapter
     for chunk in chunks:
         chunk.chapter = chapter_row
-    
+
     # Add to database
     db.add(chapter_row)
     db.commit()
     db.refresh(chapter_row)
-    
+
     logger.info(f"Ingested chapter: {title} with {len(chunks)} chunks")
     return chapter_row
 
@@ -194,7 +198,7 @@ def build_chapter_records(
 ) -> tuple[Chapter, list[ChapterChunk]]:
     """
     Legacy function - use build_chapter_records_from_wikitext instead.
-    
+
     Kept for backward compatibility with HTML-parsed data.
     """
     return build_chapter_records_from_wikitext(pageid, title, chapter)

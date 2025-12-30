@@ -58,22 +58,24 @@ def get_page_wikitext(
 @router.post("/wiki/page/{title}/ingest", response_model=WikiIngestResponse)
 def ingest_chapter(
     title: str,
-    generate_embeddings: bool = Query(True, description="Generate OpenAI embeddings for chunks"),
+    generate_embeddings: bool = Query(
+        True, description="Generate OpenAI embeddings for chunks"
+    ),
     db: Session = Depends(get_db),
 ) -> dict:
     """
     Fetch a chapter from MediaWiki, parse it, and store in the database.
-    
+
     This endpoint:
     1. Fetches the wikitext for the given page title
     2. Parses the wikitext to extract chapter information
     3. Stores the chapter and its chunks in the database
     4. Optionally generates OpenAI embeddings for each chunk
-    
+
     Args:
         title: The MediaWiki page title (e.g., "Prologue (Blazing Blade)")
         generate_embeddings: Whether to generate embeddings (requires OPENAI_API_KEY)
-        
+
     Returns:
         Ingestion result with chapter_id and chunks_count
     """

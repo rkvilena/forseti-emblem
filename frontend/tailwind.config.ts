@@ -2,16 +2,14 @@ import type { Config } from "tailwindcss";
 
 /**
  * Forsetiemblem Theme Configuration
- * 
+ *
  * Clean, modern design with Fire Emblem-inspired accent colors:
  * - Teal as the primary accent (unchanged between themes)
  * - Green/Lime for highlights and gradients
  * - Purple/Blue for secondary accents
  */
 const config: Config = {
-  content: [
-    "./src/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
+  content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
       colors: {
@@ -43,11 +41,11 @@ const config: Config = {
         display: ["Cinzel", "Georgia", "serif"],
       },
       borderRadius: {
-        sm: "0.25rem",  // 4px
+        sm: "0.25rem", // 4px
         DEFAULT: "0.375rem", // 6px
-        md: "0.5rem",   // 8px
+        md: "0.5rem", // 8px
         lg: "0.625rem", // 10px
-        xl: "0.75rem",  // 12px
+        xl: "0.75rem", // 12px
       },
       animation: {
         "fade-in": "fadeIn 0.2s ease-out",

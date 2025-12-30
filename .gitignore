@@ -4,3 +4,5 @@ backend/.venv
 .vscode/project_notes.txt
 **/__pycache__/
 **/.env
+.ruff_cache/
+.mypy_cache/

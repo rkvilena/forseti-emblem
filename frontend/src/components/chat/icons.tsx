@@ -1,6 +1,6 @@
 /**
  * Icon Components
- * 
+ *
  * Custom SVG icons for the application.
  * Using inline SVGs for better control and smaller bundle size.
  */

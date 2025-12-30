@@ -1,6 +1,6 @@
 /**
  * Forsetiemblem Design Tokens
- * 
+ *
  * Centralized theme constants for consistent styling across the application.
  * Import this file when you need access to theme values in TypeScript.
  */

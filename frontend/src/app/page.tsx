@@ -2,28 +2,23 @@
 
 /**
  * Main Chat Page
- * 
+ *
  * Primary interface for the Fire Emblem RAG chat application.
  * Features a collapsible sidebar layout inspired by modern chat UIs.
  */
 
 import { useCallback } from "react";
 import { useChat } from "@/hooks/use-chat";
-import { 
-  Sidebar, 
-  ChatContainer, 
+import {
+  Sidebar,
+  ChatContainer,
   ChatInput,
-  EmptyState 
+  EmptyState,
 } from "@/components/chat";
 import { MainLogo } from "@/components/brand/main-logo";
 
 export default function ChatPage() {
-  const { 
-    messages, 
-    isLoading, 
-    sendMessage, 
-    clearMessages
-  } = useChat({
+  const { messages, isLoading, sendMessage, clearMessages } = useChat({
     topK: 8,
     temperature: 0.3,
   });
@@ -32,14 +27,14 @@ export default function ChatPage() {
     (content: string) => {
       sendMessage(content);
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   const handleSelectQuestion = useCallback(
     (question: string) => {
       sendMessage(question);
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   return (
@@ -53,7 +48,10 @@ export default function ChatPage() {
         {/* Center watermark (only when conversation exists) */}
         {messages.length > 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <MainLogo variant="watermark" className="opacity-[0.12] scale-[1.35]" />
+            <MainLogo
+              variant="watermark"
+              className="opacity-[0.12] scale-[1.35]"
+            />
           </div>
         )}
       </div>
@@ -74,16 +72,13 @@ export default function ChatPage() {
           {messages.length === 0 ? (
             <EmptyState />
           ) : (
-            <ChatContainer 
-              messages={messages} 
-              isLoading={isLoading} 
-            />
+            <ChatContainer messages={messages} isLoading={isLoading} />
           )}
         </div>
 
         {/* Input Area */}
-        <ChatInput 
-          onSend={handleSendMessage} 
+        <ChatInput
+          onSend={handleSendMessage}
           isLoading={isLoading}
           placeholder="Ask about Fire Emblem chapters..."
         />

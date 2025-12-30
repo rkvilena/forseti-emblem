@@ -42,8 +42,12 @@ class Settings(BaseSettings):
     database_host: str = Field(default="localhost", description="PostgreSQL host")
     database_port: int = Field(default=5432, description="PostgreSQL port")
     database_user: str = Field(default="postgres", description="PostgreSQL user")
-    database_password: str = Field(default="postgres", description="PostgreSQL password")
-    database_name: str = Field(default="forsetiemblem", description="PostgreSQL database name")
+    database_password: str = Field(
+        default="postgres", description="PostgreSQL password"
+    )
+    database_name: str = Field(
+        default="forsetiemblem", description="PostgreSQL database name"
+    )
     database_url: str | None = Field(
         default=None,
         description="Full database URL (overrides individual settings if provided)",
@@ -63,7 +67,9 @@ class Settings(BaseSettings):
     # Server
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8000, description="Server port")
-    reload: bool = Field(default=False, description="Enable auto-reload (local dev only)")
+    reload: bool = Field(
+        default=False, description="Enable auto-reload (local dev only)"
+    )
     debug: bool = Field(default=False, description="Enable debug mode")
 
     # Logging
@@ -123,7 +129,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """
     Get cached settings instance.
-    
+
     Uses lru_cache to ensure settings are only loaded once.
     """
     return Settings()

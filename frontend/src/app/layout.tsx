@@ -4,7 +4,8 @@ import { nocturneSerif } from "@/styles/fonts";
 
 export const metadata: Metadata = {
   title: "Forsetiemblem - Fire Emblem Chapter Assistant",
-  description: "AI-powered assistant for Fire Emblem chapter information. Ask questions about storylines, characters, and strategies.",
+  description:
+    "AI-powered assistant for Fire Emblem chapter information. Ask questions about storylines, characters, and strategies.",
   keywords: ["Fire Emblem", "RAG", "AI Assistant", "Gaming", "Strategy"],
   authors: [{ name: "Forsetiemblem" }],
 };
@@ -22,7 +23,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`dark ${nocturneSerif.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`dark ${nocturneSerif.variable}`}
+    >
       <body className="min-h-screen bg-surface-base antialiased">
         {children}
       </body>

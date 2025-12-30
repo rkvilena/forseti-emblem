@@ -23,3 +23,7 @@ python-dotenv
 
 # OpenAI
 openai
+
+# Dev tooling (formatter/typecheck)
+ruff
+mypy

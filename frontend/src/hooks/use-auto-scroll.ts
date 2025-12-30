@@ -2,7 +2,7 @@
 
 /**
  * useAutoScroll Hook
- * 
+ *
  * Automatically scrolls to the bottom of a container when content changes.
  * Useful for chat interfaces where new messages should be visible.
  */
@@ -19,10 +19,10 @@ interface UseAutoScrollOptions {
 }
 
 export function useAutoScroll<T extends HTMLElement>(
-  options: UseAutoScrollOptions = {}
+  options: UseAutoScrollOptions = {},
 ) {
   const { enabled = true, smooth = true, dependencies = [] } = options;
-  
+
   const containerRef = useRef<T>(null);
   const shouldAutoScrollRef = useRef(true);
 
@@ -32,13 +32,14 @@ export function useAutoScroll<T extends HTMLElement>(
 
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
-    
+
     shouldAutoScrollRef.current = isAtBottom;
   }, []);
 
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {
-    if (!containerRef.current || !enabled || !shouldAutoScrollRef.current) return;
+    if (!containerRef.current || !enabled || !shouldAutoScrollRef.current)
+      return;
 
     containerRef.current.scrollTo({
       top: containerRef.current.scrollHeight,

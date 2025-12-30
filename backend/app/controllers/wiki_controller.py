@@ -111,12 +111,12 @@ def ingest_chapter_from_wikitext(
 ) -> Dict[str, Any]:
     """
     Fetch a chapter from MediaWiki, parse it, and store in the database.
-    
+
     Args:
         db: Database session
         title: Page title to fetch
         generate_embeddings: Whether to generate OpenAI embeddings
-        
+
     Returns:
         Dict with ingestion results
     """
@@ -124,10 +124,10 @@ def ingest_chapter_from_wikitext(
     page = client.fetch_page_wikitext(title=title)
     wikitext = page["wikitext"]
     pageid = page["pageid"]
-    
+
     # Parse the wikitext
     chapter_data = parse_chapter_wikitext(wikitext)
-    
+
     # Ingest into database
     chapter = ingest_chapter_to_db(
         db=db,
@@ -136,7 +136,7 @@ def ingest_chapter_from_wikitext(
         chapter_data=chapter_data,
         generate_embeddings=generate_embeddings,
     )
-    
+
     return {
         "status": "success",
         "pageid": pageid,

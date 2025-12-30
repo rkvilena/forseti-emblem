@@ -2,7 +2,7 @@
 
 /**
  * useChat Hook
- * 
+ *
  * Manages chat state and API communication for the RAG chat interface.
  * Provides a clean interface for sending messages and managing conversation history.
  */
@@ -39,17 +39,12 @@ interface UseChatReturn {
 }
 
 export function useChat(options: UseChatOptions = {}): UseChatReturn {
-  const {
-    topK = 8,
-    temperature = 0.3,
-    systemPrompt = null,
-    onError,
-  } = options;
+  const { topK = 8, temperature = 0.3, systemPrompt = null, onError } = options;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  
+
   // Store last user message for retry functionality
   const lastUserMessageRef = useRef<string | null>(null);
   const streamTimerRef = useRef<number | null>(null);
@@ -105,8 +100,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                         }
                       : null),
                   }
-                : msg
-            )
+                : msg,
+            ),
           );
 
           if (index >= totalLength) {
@@ -128,78 +123,91 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         streamTimerRef.current = window.setInterval(push, tickMs);
       });
     },
-    []
+    [],
   );
 
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isLoading) return;
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim() || isLoading) return;
 
-    setError(null);
-    setIsLoading(true);
-    lastUserMessageRef.current = content;
+      setError(null);
+      setIsLoading(true);
+      lastUserMessageRef.current = content;
 
-    // Add user message immediately
-    const userMessage: ChatMessage = {
-      id: generateId(),
-      role: "user",
-      content: content.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev: ChatMessage[]) => [...prev, userMessage]);
-
-    // Create placeholder for assistant response
-    const assistantMessageId = generateId();
-    const placeholderMessage: ChatMessage = {
-      id: assistantMessageId,
-      role: "assistant",
-      content: "",
-      timestamp: new Date(),
-      isStreaming: true,
-    };
-
-    setMessages((prev: ChatMessage[]) => [...prev, placeholderMessage]);
-
-    try {
-      const request: RagChatRequest = {
-        message: content.trim(),
-        top_k: topK,
-        temperature,
-        system_prompt: systemPrompt,
+      // Add user message immediately
+      const userMessage: ChatMessage = {
+        id: generateId(),
+        role: "user",
+        content: content.trim(),
+        timestamp: new Date(),
       };
 
-      const response = await apiClient.chatRag(request);
+      setMessages((prev: ChatMessage[]) => [...prev, userMessage]);
 
-      // Stream the assistant response on the client (backend can stay non-streaming).
-      await streamAssistantMessage({
-        messageId: assistantMessageId,
-        fullText: response.response,
-        model: response.model,
-        usage: response.usage,
-      });
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error("Unknown error occurred");
-      
-      // Remove the placeholder message on error
-      setMessages((prev: ChatMessage[]) => prev.filter((msg: ChatMessage) => msg.id !== assistantMessageId));
-      
-      setError(error);
-      onError?.(error);
+      // Create placeholder for assistant response
+      const assistantMessageId = generateId();
+      const placeholderMessage: ChatMessage = {
+        id: assistantMessageId,
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+        isStreaming: true,
+      };
 
-      // Create an error message to display
-      if (err instanceof ApiClientError) {
-        const errorMessage: ChatMessage = {
-          id: generateId(),
-          role: "assistant",
-          content: `⚠️ **Error**: ${err.detail || err.message}\n\nPlease try again or check if the backend is running.`,
-          timestamp: new Date(),
+      setMessages((prev: ChatMessage[]) => [...prev, placeholderMessage]);
+
+      try {
+        const request: RagChatRequest = {
+          message: content.trim(),
+          top_k: topK,
+          temperature,
+          system_prompt: systemPrompt,
         };
-        setMessages((prev: ChatMessage[]) => [...prev, errorMessage]);
+
+        const response = await apiClient.chatRag(request);
+
+        // Stream the assistant response on the client (backend can stay non-streaming).
+        await streamAssistantMessage({
+          messageId: assistantMessageId,
+          fullText: response.response,
+          model: response.model,
+          usage: response.usage,
+        });
+      } catch (err) {
+        const error =
+          err instanceof Error ? err : new Error("Unknown error occurred");
+
+        // Remove the placeholder message on error
+        setMessages((prev: ChatMessage[]) =>
+          prev.filter((msg: ChatMessage) => msg.id !== assistantMessageId),
+        );
+
+        setError(error);
+        onError?.(error);
+
+        // Create an error message to display
+        if (err instanceof ApiClientError) {
+          const errorMessage: ChatMessage = {
+            id: generateId(),
+            role: "assistant",
+            content: `⚠️ **Error**: ${err.detail || err.message}\n\nPlease try again or check if the backend is running.`,
+            timestamp: new Date(),
+          };
+          setMessages((prev: ChatMessage[]) => [...prev, errorMessage]);
+        }
+      } finally {
+        setIsLoading(false);
       }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading, topK, temperature, systemPrompt, onError, streamAssistantMessage]);
+    },
+    [
+      isLoading,
+      topK,
+      temperature,
+      systemPrompt,
+      onError,
+      streamAssistantMessage,
+    ],
+  );
 
   const clearMessages = useCallback(() => {
     setMessages([]);

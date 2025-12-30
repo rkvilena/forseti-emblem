@@ -66,13 +66,13 @@ frontend/
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server with Turbopack |
-| `npm run build` | Build for production |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run type-check` | Run TypeScript type checking |
+| Command              | Description                     |
+| -------------------- | ------------------------------- |
+| `npm run dev`        | Start dev server with Turbopack |
+| `npm run build`      | Build for production            |
+| `npm run start`      | Start production server         |
+| `npm run lint`       | Run ESLint                      |
+| `npm run type-check` | Run TypeScript type checking    |
 
 ## Theme
 

@@ -19,8 +19,12 @@ class WikiCategoryPageItem(BaseModel):
     html: str | None = None
     chapter: Any | None = None
 
-    tables_json: Any | None = Field(default=None, description="Extracted tables as JSON")
-    tables_markdown: str | None = Field(default=None, description="Extracted tables as Markdown")
+    tables_json: Any | None = Field(
+        default=None, description="Extracted tables as JSON"
+    )
+    tables_markdown: str | None = Field(
+        default=None, description="Extracted tables as Markdown"
+    )
 
 
 class WikiCategoryPagesResponse(BaseModel):

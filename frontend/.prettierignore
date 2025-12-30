@@ -1,0 +1,17 @@
+# deps
+node_modules/
+
+# next outputs
+.next/
+out/
+
+# build artifacts
+build/
+dist/
+coverage/
+
+# misc
+*.log
+
+# static assets
+public/

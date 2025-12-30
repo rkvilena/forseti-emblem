@@ -40,7 +40,11 @@ def _parse_infobox(aside: Tag) -> Dict[str, Any]:
         value_tag = data.select_one(".pi-data-value")
 
         label = label_tag.get_text(" ", strip=True) if label_tag else None
-        value_text = value_tag.get_text(" ", strip=True) if value_tag else data.get_text(" ", strip=True)
+        value_text = (
+            value_tag.get_text(" ", strip=True)
+            if value_tag
+            else data.get_text(" ", strip=True)
+        )
 
         group_title = None
         group = data.find_parent(class_="pi-group")

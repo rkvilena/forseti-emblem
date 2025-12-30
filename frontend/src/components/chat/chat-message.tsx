@@ -2,7 +2,7 @@
 
 /**
  * ChatMessage Component
- * 
+ *
  * Renders individual chat messages with styling based on role.
  * Supports markdown rendering for assistant responses.
  */
@@ -32,16 +32,16 @@ export const ChatMessage = memo(function ChatMessage({
     <div
       className={cn(
         "group flex gap-3 animate-fade-in",
-        isUser ? "flex-row-reverse" : "flex-row"
+        isUser ? "flex-row-reverse" : "flex-row",
       )}
     >
       {/* Avatar */}
       <div
         className={cn(
           "flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center",
-          isUser 
-            ? "bg-brand-teal/20 text-brand-teal" 
-            : "bg-brand-green/20 text-brand-green"
+          isUser
+            ? "bg-brand-teal/20 text-brand-teal"
+            : "bg-brand-green/20 text-brand-green",
         )}
       >
         {isUser ? (
@@ -55,7 +55,7 @@ export const ChatMessage = memo(function ChatMessage({
       <div
         className={cn(
           "relative max-w-[80%] px-4 py-3",
-          isUser ? "message-user" : "message-assistant"
+          isUser ? "message-user" : "message-assistant",
         )}
       >
         {showTyping ? (
@@ -63,19 +63,23 @@ export const ChatMessage = memo(function ChatMessage({
         ) : (
           <>
             {/* Message text */}
-            <div className={cn(
-              "prose prose-sm max-w-none",
-              "prose-p:my-2 prose-p:leading-relaxed",
-              "prose-headings:text-text-primary",
-              "prose-strong:text-brand-teal",
-              "prose-code:text-brand-blue prose-code:bg-surface-muted prose-code:px-1 prose-code:rounded",
-              "prose-pre:bg-surface-base prose-pre:border prose-pre:border-surface-border",
-              "prose-ul:my-2 prose-li:my-0",
-              "prose-a:text-brand-blue prose-a:no-underline hover:prose-a:underline",
-              "dark:prose-invert"
-            )}>
+            <div
+              className={cn(
+                "prose prose-sm max-w-none",
+                "prose-p:my-2 prose-p:leading-relaxed",
+                "prose-headings:text-text-primary",
+                "prose-strong:text-brand-teal",
+                "prose-code:text-brand-blue prose-code:bg-surface-muted prose-code:px-1 prose-code:rounded",
+                "prose-pre:bg-surface-base prose-pre:border prose-pre:border-surface-border",
+                "prose-ul:my-2 prose-li:my-0",
+                "prose-a:text-brand-blue prose-a:no-underline hover:prose-a:underline",
+                "dark:prose-invert",
+              )}
+            >
               {isUser ? (
-                <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                <p className="whitespace-pre-wrap break-words">
+                  {message.content}
+                </p>
               ) : (
                 <ReactMarkdown>{message.content}</ReactMarkdown>
               )}
@@ -83,10 +87,12 @@ export const ChatMessage = memo(function ChatMessage({
 
             {/* Metadata */}
             {showTimestamp && (
-              <div className={cn(
-                "flex items-center gap-2 mt-2 text-xs text-text-muted",
-                "opacity-0 group-hover:opacity-100 transition-opacity"
-              )}>
+              <div
+                className={cn(
+                  "flex items-center gap-2 mt-2 text-xs text-text-muted",
+                  "opacity-0 group-hover:opacity-100 transition-opacity",
+                )}
+              >
                 <span>{formatTimestamp(message.timestamp)}</span>
                 {message.model && !isUser && (
                   <>

@@ -20,12 +20,15 @@ class RagChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     message: str = Field(..., min_length=1, description="User prompt")
-    top_k: int = Field(default=8, ge=1, le=30, description="How many chunks to retrieve")
+    top_k: int = Field(
+        default=8, ge=1, le=30, description="How many chunks to retrieve"
+    )
     temperature: float = Field(default=0.3, ge=0.0, le=2.0)
     system_prompt: str | None = Field(
         default=None,
         description="Optional system prompt override. Defaults to Fire Emblem assistant prompt.",
     )
+
 
 class ChatUsage(BaseModel):
     prompt_tokens: int | None = None

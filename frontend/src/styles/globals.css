@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,600&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,600&family=Inter:wght@300;400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -55,7 +55,7 @@ html.dark {
 
   body {
     @apply bg-surface-base text-text-primary antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
   }
 
   /* Custom scrollbar styling */
@@ -82,7 +82,8 @@ html.dark {
   }
 
   .font-brand {
-    font-family: var(--font-brand), 'Cormorant Garamond', 'Cinzel', Georgia, serif;
+    font-family: var(--font-brand), "Cormorant Garamond", "Cinzel", Georgia,
+      serif;
     font-style: italic;
     font-weight: 600;
   }
@@ -149,8 +150,13 @@ html.dark {
   }
 
   @keyframes typing {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 1; }
+    0%,
+    100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 1;
+    }
   }
 
   .animate-fade-in {
@@ -158,8 +164,12 @@ html.dark {
   }
 
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   /* Glass effect */

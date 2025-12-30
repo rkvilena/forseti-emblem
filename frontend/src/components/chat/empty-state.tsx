@@ -1,6 +1,6 @@
 /**
  * EmptyState Component
- * 
+ *
  * Shown when no messages exist in the chat.
  * Provides welcome message and usage hints.
  */
@@ -15,13 +15,15 @@ interface EmptyStateProps {
 
 export function EmptyState({ className }: EmptyStateProps) {
   return (
-    <div className={cn(
-      "flex flex-col items-center justify-center h-full px-4 py-12",
-      className
-    )}>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center h-full px-4 py-12",
+        className,
+      )}
+    >
       {/* Logo */}
       <MainLogo className="mb-6" />
-      
+
       {/* Welcome Message */}
       <div className="text-center max-w-md">
         <div className="flex items-center justify-center gap-2 mb-3">
@@ -31,7 +33,8 @@ export function EmptyState({ className }: EmptyStateProps) {
           </h2>
         </div>
         <p className="text-sm text-text-muted mb-4">
-          Ask me anything about Fire Emblem chapters, characters, story events, or battle strategies.
+          Ask me anything about Fire Emblem chapters, characters, story events,
+          or battle strategies.
         </p>
         <p className="text-xs text-text-muted">
           Try selecting a question from the sidebar or type your own below.

@@ -22,7 +22,12 @@ from urllib.parse import quote
 from fastapi import FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
+from starlette.responses import (
+    HTMLResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 
 from .config import settings
 
@@ -70,7 +75,9 @@ def _verify_token(*, token: str | None, secret: str) -> bool:
     except Exception:
         return False
 
-    expected_sig = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).digest()
+    expected_sig = hmac.new(
+        secret.encode("utf-8"), payload_bytes, hashlib.sha256
+    ).digest()
     if not secrets.compare_digest(sig, expected_sig):
         return False
 
@@ -309,7 +316,9 @@ class DocsBasicAuthMiddleware(BaseHTTPMiddleware):
             return False
 
         provided_username, provided_password = decoded.split(":", 1)
-        return secrets.compare_digest(provided_username, self.username) and secrets.compare_digest(
+        return secrets.compare_digest(
+            provided_username, self.username
+        ) and secrets.compare_digest(
             provided_password,
             self.password,
         )
@@ -342,13 +351,17 @@ class DocsSessionAuthMiddleware(BaseHTTPMiddleware):
         if not self.enabled or not _is_docs_path(request.url.path):
             return await call_next(request)
 
-        if _verify_token(token=request.cookies.get(self.cookie_name), secret=self.secret):
+        if _verify_token(
+            token=request.cookies.get(self.cookie_name), secret=self.secret
+        ):
             return await call_next(request)
 
         next_url = str(request.url.path)
         if request.url.query:
             next_url += f"?{request.url.query}"
-        return RedirectResponse(url=f"/docs-login?next={quote(next_url, safe='/:?&=%')}" , status_code=302)
+        return RedirectResponse(
+            url=f"/docs-login?next={quote(next_url, safe='/:?&=%')}", status_code=302
+        )
 
 
 def setup_docs_auth(app: FastAPI, *, logger) -> tuple[bool, str]:
@@ -371,7 +384,9 @@ def setup_docs_auth(app: FastAPI, *, logger) -> tuple[bool, str]:
         return False, settings.docs_auth_mode
 
     if not (settings.docs_username and settings.docs_password):
-        logger.warning("Docs auth enabled but DOCS_USERNAME/DOCS_PASSWORD not set; leaving docs unprotected")
+        logger.warning(
+            "Docs auth enabled but DOCS_USERNAME/DOCS_PASSWORD not set; leaving docs unprotected"
+        )
         return True, settings.docs_auth_mode
 
     if settings.docs_auth_mode == "basic":
@@ -385,7 +400,9 @@ def setup_docs_auth(app: FastAPI, *, logger) -> tuple[bool, str]:
 
     if settings.docs_auth_mode == "session":
         if not settings.docs_session_secret:
-            logger.warning("Docs auth mode=session but DOCS_SESSION_SECRET not set; leaving docs unprotected")
+            logger.warning(
+                "Docs auth mode=session but DOCS_SESSION_SECRET not set; leaving docs unprotected"
+            )
         else:
             app.add_middleware(
                 DocsSessionAuthMiddleware,
@@ -394,7 +411,9 @@ def setup_docs_auth(app: FastAPI, *, logger) -> tuple[bool, str]:
             )
 
         # Register login/logout endpoints even if misconfigured; helps debugging.
-        def docs_login_form(next: str = "/docs", error: str | None = None) -> HTMLResponse:
+        def docs_login_form(
+            next: str = "/docs", error: str | None = None
+        ) -> HTMLResponse:
             safe_next = _sanitize_next(next)
             return HTMLResponse(content=_login_html(next_url=safe_next, error=error))
 
@@ -404,7 +423,11 @@ def setup_docs_auth(app: FastAPI, *, logger) -> tuple[bool, str]:
             password = str(form.get("password", ""))
             next_url = _sanitize_next(str(form.get("next", "/docs")))
 
-            if not (settings.docs_username and settings.docs_password and settings.docs_session_secret):
+            if not (
+                settings.docs_username
+                and settings.docs_password
+                and settings.docs_session_secret
+            ):
                 return RedirectResponse(
                     url=f"/docs-login?error=not-configured&next={quote(next_url, safe='/:?&=%')}",
                     status_code=303,
@@ -441,12 +464,20 @@ def setup_docs_auth(app: FastAPI, *, logger) -> tuple[bool, str]:
             response.delete_cookie(_DOCS_COOKIE_NAME, path="/")
             return response
 
-        app.add_api_route("/docs-login", docs_login_form, methods=["GET"], include_in_schema=False)
-        app.add_api_route("/docs-login", docs_login_submit, methods=["POST"], include_in_schema=False)
-        app.add_api_route("/docs-logout", docs_logout, methods=["POST"], include_in_schema=False)
+        app.add_api_route(
+            "/docs-login", docs_login_form, methods=["GET"], include_in_schema=False
+        )
+        app.add_api_route(
+            "/docs-login", docs_login_submit, methods=["POST"], include_in_schema=False
+        )
+        app.add_api_route(
+            "/docs-logout", docs_logout, methods=["POST"], include_in_schema=False
+        )
 
         return True, "session"
 
     # Unknown mode => leave unprotected, but report enabled.
-    logger.warning(f"Unknown DOCS_AUTH_MODE={settings.docs_auth_mode}; leaving docs unprotected")
+    logger.warning(
+        f"Unknown DOCS_AUTH_MODE={settings.docs_auth_mode}; leaving docs unprotected"
+    )
     return True, settings.docs_auth_mode

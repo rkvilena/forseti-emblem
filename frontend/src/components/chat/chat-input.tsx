@@ -2,7 +2,7 @@
 
 /**
  * ChatInput Component
- * 
+ *
  * Text input area for composing and sending chat messages.
  * Features auto-resize textarea with max height and scrolling.
  */
@@ -42,7 +42,7 @@ export function ChatInput({
     // Reset to auto to measure actual content height
     textarea.style.height = "auto";
     const contentHeight = textarea.scrollHeight;
-    
+
     // Apply height with max limit
     if (contentHeight <= MAX_TEXTAREA_HEIGHT) {
       textarea.style.height = `${contentHeight}px`;
@@ -56,20 +56,20 @@ export function ChatInput({
   const handleSubmit = useCallback(
     (e?: FormEvent) => {
       e?.preventDefault();
-      
+
       const trimmedMessage = message.trim();
       if (!trimmedMessage || isLoading) return;
 
       onSend(trimmedMessage);
       setMessage("");
-      
+
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
         textareaRef.current.style.overflowY = "hidden";
       }
     },
-    [message, isLoading, onSend]
+    [message, isLoading, onSend],
   );
 
   const handleKeyDown = useCallback(
@@ -80,7 +80,7 @@ export function ChatInput({
         handleSubmit();
       }
     },
-    [handleSubmit]
+    [handleSubmit],
   );
 
   const canSubmit = message.trim().length > 0 && !isLoading;
@@ -90,7 +90,7 @@ export function ChatInput({
       onSubmit={handleSubmit}
       className={cn(
         "p-4 bg-surface-elevated border-t-4 border-brand-gold/70",
-        className
+        className,
       )}
     >
       <div className="relative flex items-end gap-2 max-w-3xl mx-auto">
@@ -115,7 +115,7 @@ export function ChatInput({
               "focus:outline-none focus:border-brand-teal focus:ring-1 focus:ring-brand-teal",
               "transition-colors duration-200",
               "disabled:opacity-50 disabled:cursor-not-allowed",
-              "min-h-[48px]"
+              "min-h-[48px]",
             )}
             style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
           />
@@ -130,14 +130,14 @@ export function ChatInput({
             "transition-all duration-200",
             canSubmit
               ? "bg-brand-teal text-white hover:bg-brand-green active:scale-95"
-              : "bg-surface-muted text-text-muted cursor-not-allowed"
+              : "bg-surface-muted text-text-muted cursor-not-allowed",
           )}
           aria-label="Send message"
         >
           <SendIcon className="w-5 h-5" />
         </button>
       </div>
-      
+
       {/* Helper text */}
       <p className="text-xs text-text-muted text-center mt-2 opacity-60">
         Press Enter to send, Shift+Enter for new line
@@ -145,4 +145,3 @@ export function ChatInput({
     </form>
   );
 }
-

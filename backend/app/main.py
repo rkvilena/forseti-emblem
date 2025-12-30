@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """
     Application lifespan handler.
-    
+
     Runs on startup and shutdown.
     """
     # Startup
     logger.info(f"Starting Fire Emblem RAG Backend in {settings.environment} mode")
     logger.info(f"Debug mode: {settings.debug}")
-    
+
     # Check database connection
     if check_db_connection():
         logger.info("Database connection successful")
@@ -43,9 +43,9 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Database initialization skipped/failed: {e}")
     else:
         logger.warning("Database connection failed - some features may not work")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Fire Emblem RAG Backend")
 
@@ -63,9 +63,9 @@ docs_auth_enabled, docs_auth_mode = setup_docs_auth(app, logger=logger)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",      # Local frontend dev
-        "http://127.0.0.1:3000",      # Alternative localhost
-        "http://localhost:8000",      # Same-origin requests
+        "http://localhost:3000",  # Local frontend dev
+        "http://127.0.0.1:3000",  # Alternative localhost
+        "http://localhost:8000",  # Same-origin requests
         # Production URLs will be added via environment or here
     ],
     allow_credentials=True,
@@ -78,7 +78,11 @@ app.add_middleware(
 def health() -> dict:
     """Health check endpoint."""
     db_status = "connected" if check_db_connection() else "disconnected"
-    vector_status = "available" if (db_status == "connected" and pgvector_available()) else "missing"
+    vector_status = (
+        "available"
+        if (db_status == "connected" and pgvector_available())
+        else "missing"
+    )
     return {
         "status": "ok",
         "environment": settings.environment,
@@ -91,7 +95,7 @@ def health() -> dict:
 def get_config() -> dict:
     """
     Get current configuration (non-sensitive values only).
-    
+
     Useful for debugging configuration issues.
     """
     return {
@@ -111,5 +115,3 @@ def get_config() -> dict:
 
 app.include_router(wiki.router)
 app.include_router(chat.router)
-
-

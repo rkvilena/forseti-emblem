@@ -36,9 +36,9 @@ Base = declarative_base()
 def get_db() -> Generator[Session, None, None]:
     """
     Dependency for FastAPI to get database session.
-    
+
     Yields a database session and ensures it's closed after use.
-    
+
     Usage:
         @router.get("/items")
         def get_items(db: Session = Depends(get_db)):
@@ -55,7 +55,7 @@ def get_db() -> Generator[Session, None, None]:
 def get_db_context() -> Generator[Session, None, None]:
     """
     Context manager for database session outside of FastAPI dependencies.
-    
+
     Usage:
         with get_db_context() as db:
             db.query(Model).all()
@@ -74,11 +74,10 @@ def get_db_context() -> Generator[Session, None, None]:
 def init_db() -> None:
     """
     Initialize database tables and extensions.
-    
+
     Creates all tables defined in models and ensures pgvector extension is enabled.
     """
     # Import models to ensure they are registered with Base
-    from . import models  # noqa: F401
 
     pgvector_ok = ensure_pgvector_extension()
     if not pgvector_ok:
@@ -98,7 +97,9 @@ def pgvector_available() -> bool:
     try:
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')")
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')"
+                )
             ).scalar_one()
             return bool(result)
     except SQLAlchemyError as e:
@@ -129,7 +130,7 @@ def ensure_pgvector_extension() -> bool:
 def check_db_connection() -> bool:
     """
     Check if database connection is working.
-    
+
     Returns True if connection is successful, False otherwise.
     """
     try:
@@ -139,4 +140,3 @@ def check_db_connection() -> bool:
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
         return False
-

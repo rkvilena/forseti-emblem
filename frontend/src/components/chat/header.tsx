@@ -1,6 +1,6 @@
 /**
  * Header Component
- * 
+ *
  * Application header with branding and controls.
  */
 
@@ -17,10 +17,10 @@ interface HeaderProps {
   className?: string;
 }
 
-export function Header({ 
-  onClearChat, 
+export function Header({
+  onClearChat,
   hasMessages = false,
-  className 
+  className,
 }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
 
@@ -31,7 +31,7 @@ export function Header({
         "bg-surface-elevated/80 backdrop-blur-lg",
         "border-b border-surface-border",
         "sticky top-0 z-10",
-        className
+        className,
       )}
     >
       {/* Logo & Title */}

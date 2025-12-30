@@ -15,7 +15,7 @@ export default function Icon() {
     "src",
     "assets",
     "fonts",
-    "fonnts.com-nocturneserif-semibolditalic.otf"
+    "fonnts.com-nocturneserif-semibolditalic.otf",
   );
 
   const fontData = readFileSync(fontPath);
@@ -41,7 +41,8 @@ export default function Icon() {
             fontSize: 18,
             lineHeight: 1,
             letterSpacing: 0.5,
-            backgroundImage: "linear-gradient(90deg, rgb(120,244,124), rgb(54,106,156))",
+            backgroundImage:
+              "linear-gradient(90deg, rgb(120,244,124), rgb(54,106,156))",
             backgroundClip: "text",
             WebkitBackgroundClip: "text",
             color: "transparent",
@@ -61,6 +62,6 @@ export default function Icon() {
           weight: 600,
         },
       ],
-    }
+    },
   );
 }
