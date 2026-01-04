@@ -1,6 +1,4 @@
-"""
-Fire Emblem RAG Backend - Main Application Entry Point
-"""
+"""Forseti Emblem RAG Backend - Main Application Entry Point."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -30,7 +28,7 @@ async def lifespan(app: FastAPI):
     Runs on startup and shutdown.
     """
     # Startup
-    logger.info(f"Starting Fire Emblem RAG Backend in {settings.environment} mode")
+    logger.info(f"Starting Forseti Emblem RAG Backend in {settings.environment} mode")
     logger.info(f"Debug mode: {settings.debug}")
 
     # Check database connection
@@ -47,12 +45,12 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    logger.info("Shutting down Fire Emblem RAG Backend")
+    logger.info("Shutting down Forseti Emblem RAG Backend")
 
 
 app = FastAPI(
-    title="Fire Emblem RAG Backend",
-    description="RAG-powered API for Fire Emblem game chapter information",
+    title="Forseti Emblem RAG Backend",
+    description="RAG-powered API for Fire Emblem game knowledge",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -74,7 +72,7 @@ app.add_middleware(
 )
 
 
-@app.get("/health")
+@app.get("/health", tags=["system"])
 def health() -> dict:
     """Health check endpoint."""
     db_status = "connected" if check_db_connection() else "disconnected"
@@ -91,7 +89,7 @@ def health() -> dict:
     }
 
 
-@app.get("/config")
+@app.get("/config", tags=["system"])
 def get_config() -> dict:
     """
     Get current configuration (non-sensitive values only).

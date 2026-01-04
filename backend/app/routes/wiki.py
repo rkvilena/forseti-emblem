@@ -11,7 +11,7 @@ from ..schemas.wiki import (
 )
 
 
-router = APIRouter()
+router = APIRouter(tags=["chapters"])
 
 
 @router.get("/wiki/category/{category_name}", response_model=WikiCategoryPagesResponse)

@@ -12,6 +12,12 @@ requests
 beautifulsoup4
 mwparserfromhell
 
+# Table parsing (Serenes Forest growth rates)
+pandas
+
+# Required by pandas.read_html
+lxml
+
 # Database
 sqlalchemy
 psycopg[binary]
