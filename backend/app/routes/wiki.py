@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from ..controllers import wiki_controller
 from ..db import get_db
 from ..schemas.wiki import (
+    ChapterListResponse,
     WikiCategoryPagesResponse,
     WikiIngestResponse,
     WikiPageHtmlResponse,
@@ -84,3 +85,11 @@ def ingest_chapter(
         title=title,
         generate_embeddings=generate_embeddings,
     )
+
+
+@router.get("/chapters", response_model=ChapterListResponse)
+def list_documented_chapters(db: Session = Depends(get_db)) -> ChapterListResponse:
+    """Return all documented chapters grouped by game."""
+
+    data = wiki_controller.list_documented_chapters(db=db)
+    return ChapterListResponse.model_validate(data)

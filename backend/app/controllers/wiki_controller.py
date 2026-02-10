@@ -1,9 +1,11 @@
 from typing import Any, Dict
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..chapter_ingest import ingest_chapter_to_db
+from ..chapter_ingest import DuplicateChapterError, ingest_chapter_to_db
 from ..mediawiki_client import MediaWikiClient
+from ..models import Chapter
 from ..parsers import (
     extract_tables_as_json,
     extract_tables_as_markdown,
@@ -129,13 +131,24 @@ def ingest_chapter_from_wikitext(
     chapter_data = parse_chapter_wikitext(wikitext)
 
     # Ingest into database
-    chapter = ingest_chapter_to_db(
-        db=db,
-        pageid=pageid,
-        title=page["title"],
-        chapter_data=chapter_data,
-        generate_embeddings=generate_embeddings,
-    )
+    try:
+        chapter = ingest_chapter_to_db(
+            db=db,
+            pageid=pageid,
+            title=page["title"],
+            chapter_data=chapter_data,
+            generate_embeddings=generate_embeddings,
+        )
+    except DuplicateChapterError as exc:
+        detail: dict[str, Any] = {
+            "message": str(exc),
+            "chapter_title": exc.chapter_title,
+            "game": exc.game,
+        }
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        ) from exc
 
     return {
         "status": "success",
@@ -145,3 +158,44 @@ def ingest_chapter_from_wikitext(
         "chunks_count": len(chapter.chunks),
         "chapter_data": chapter_data,
     }
+
+
+def _normalize_game_name(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    text = raw.strip()
+    if text.startswith("[[") and text.endswith("]]") and len(text) > 4:
+        return text[2:-2].strip()
+    return text
+
+
+def list_documented_chapters(db: Session) -> Dict[str, Any]:
+    chapters = (
+        db.query(Chapter)
+        .order_by(Chapter.game.is_(None), Chapter.game, Chapter.id)
+        .all()
+    )
+
+    groups: dict[str | None, list[Chapter]] = {}
+    for chapter in chapters:
+        key = _normalize_game_name(chapter.game)
+        groups.setdefault(key, []).append(chapter)
+
+    games: list[Dict[str, Any]] = []
+    for game_name, game_chapters in groups.items():
+        games.append(
+            {
+                "game": game_name,
+                "chapters": [
+                    {
+                        "id": c.id,
+                        "title": c.title,
+                        "infobox_title": c.infobox_title,
+                        "game": _normalize_game_name(c.game),
+                    }
+                    for c in game_chapters
+                ],
+            }
+        )
+
+    return {"total_chapters": len(chapters), "games": games}

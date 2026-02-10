@@ -9,12 +9,7 @@
 
 import { useCallback } from "react";
 import { useChat } from "@/hooks/use-chat";
-import {
-  Sidebar,
-  ChatContainer,
-  ChatInput,
-  EmptyState,
-} from "@/components/chat";
+import { Sidebar, ChatContainer, ChatInput } from "@/components/chat";
 import { MainLogo } from "@/components/brand/main-logo";
 
 export default function ChatPage() {
@@ -69,11 +64,11 @@ export default function ChatPage() {
       <main className="relative z-10 flex-1 flex flex-col min-w-0">
         {/* Chat Area */}
         <div className="flex-1 flex flex-col min-h-0">
-          {messages.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <ChatContainer messages={messages} isLoading={isLoading} />
-          )}
+          <ChatContainer
+            messages={messages}
+            isLoading={isLoading}
+            onSelectSuggestedQuestion={handleSelectQuestion}
+          />
         </div>
 
         {/* Input Area */}

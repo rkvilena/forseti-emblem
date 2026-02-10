@@ -41,6 +41,26 @@ html.dark {
 }
 
 @layer base {
+  html {
+    font-size: 18px;
+  }
+
+  html.text-size-sm {
+    font-size: 15px;
+  }
+
+  html.text-size-md {
+    font-size: 18px;
+  }
+
+  html.text-size-lg {
+    font-size: 21px;
+  }
+
+  html.text-size-xl {
+    font-size: 24px;
+  }
+
   * {
     box-sizing: border-box;
     padding: 0;
@@ -55,7 +75,9 @@ html.dark {
 
   body {
     @apply bg-surface-base text-text-primary antialiased;
-    font-family: "Inter", system-ui, sans-serif;
+    font-family:
+      "Perpetua", "Perpetua MT", var(--font-brand), "Cormorant Garamond",
+      "Cinzel", Georgia, "Times New Roman", serif;
   }
 
   /* Custom scrollbar styling */
@@ -82,8 +104,8 @@ html.dark {
   }
 
   .font-brand {
-    font-family: var(--font-brand), "Cormorant Garamond", "Cinzel", Georgia,
-      serif;
+    font-family:
+      var(--font-brand), "Cormorant Garamond", "Cinzel", Georgia, serif;
     font-style: italic;
     font-weight: 600;
   }

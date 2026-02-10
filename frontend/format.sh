@@ -23,12 +23,13 @@ for arg in "$@"; do
   esac
 done
 
-PRETTIER_CMD=()
-if [ -x "./node_modules/.bin/prettier" ]; then
-  PRETTIER_CMD=("./node_modules/.bin/prettier")
-else
-  PRETTIER_CMD=(npx --no-install prettier)
+if [ ! -x "./node_modules/.bin/prettier" ]; then
+  echo "[frontend] prettier skipped: local prettier is not installed" >&2
+  echo "          Run: cd frontend && npm install" >&2
+  exit 1
 fi
+
+PRETTIER_CMD=("./node_modules/.bin/prettier")
 
 if [ "$CHECK" -eq 1 ]; then
   echo "[frontend] prettier (check)"

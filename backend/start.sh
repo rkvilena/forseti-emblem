@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run from repo root so `backend.app.*` imports work and config can find backend/.env.
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-cd "$REPO_ROOT"
+cd "$(dirname "$0")"
 
-exec python -m uvicorn backend.app.main:app --reload
+if [ -f ".env" ]; then
+  set -a
+  source .env
+  set +a
+fi
+
+if [ -f ".venv/Scripts/activate" ]; then
+  source .venv/Scripts/activate
+else
+  echo ".venv not found. run: python -m venv .venv" >&2
+  exit 1
+fi
+
+exec python -m fastapi dev app/main.py

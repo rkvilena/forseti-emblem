@@ -24,3 +24,20 @@ export interface ConfigResponse {
   debug: boolean;
   log_level: string;
 }
+
+export interface ChapterSummary {
+  id: number;
+  title: string;
+  infobox_title: string | null;
+  game: string | null;
+}
+
+export interface GameChaptersGroup {
+  game: string | null;
+  chapters: ChapterSummary[];
+}
+
+export interface ChapterListResponse {
+  total_chapters: number;
+  games: GameChaptersGroup[];
+}

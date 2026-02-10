@@ -17,6 +17,15 @@ from .openai_service import create_embeddings_batch
 logger = logging.getLogger(__name__)
 
 
+class DuplicateChapterError(Exception):
+    """Raised when an equivalent chapter already exists in the database."""
+
+    def __init__(self, message: str, chapter_title: str | None, game: str | None):
+        super().__init__(message)
+        self.chapter_title = chapter_title
+        self.game = game
+
+
 def build_chapter_records_from_wikitext(
     pageid: int,
     title: str,
@@ -148,20 +157,27 @@ def ingest_chapter_to_db(
         generate_embeddings: Whether to generate OpenAI embeddings
 
     Returns:
-        The created/updated Chapter record
+        The created Chapter record
     """
-    # Check if chapter already exists
-    existing = db.query(Chapter).filter(Chapter.pageid == pageid).first()
-    if existing:
-        # Delete existing to replace with new data
-        logger.info(f"Replacing existing chapter: {title} (pageid={pageid})")
-        db.delete(existing)
-        db.flush()
-
-    # Build records
+    # Build records from parsed chapter data
     chapter_row, chunks = build_chapter_records_from_wikitext(
         pageid, title, chapter_data
     )
+
+    # Prevent duplicate chapters based on parsed chapter title and game
+    lookup_title = chapter_row.infobox_title or chapter_row.title
+
+    query = db.query(Chapter).filter(Chapter.title == lookup_title)
+    if chapter_row.game is not None:
+        query = query.filter(Chapter.game == chapter_row.game)
+
+    existing = query.first()
+    if existing is not None:
+        raise DuplicateChapterError(
+            f"Chapter '{lookup_title}' for game '{chapter_row.game}' already exists",
+            chapter_title=lookup_title,
+            game=chapter_row.game,
+        )
 
     # Generate embeddings if requested
     if generate_embeddings and chunks:

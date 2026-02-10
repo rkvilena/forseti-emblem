@@ -76,3 +76,29 @@ class WikiIngestResponse(BaseModel):
     chapter_id: int
     chunks_count: int
     chapter_data: Any
+
+
+class ChapterSummary(BaseModel):
+    """Lightweight representation of a stored chapter.
+
+    Used for listing documented chapters grouped by game.
+    """
+
+    id: int
+    title: str
+    infobox_title: str | None = None
+    game: str | None = None
+
+
+class GameChaptersGroup(BaseModel):
+    """Grouping of chapters for a single game (or unknown game)."""
+
+    game: str | None = None
+    chapters: list[ChapterSummary]
+
+
+class ChapterListResponse(BaseModel):
+    """Response model for documented chapters grouped by game."""
+
+    total_chapters: int
+    games: list[GameChaptersGroup]

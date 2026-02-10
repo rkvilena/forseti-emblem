@@ -37,7 +37,7 @@ export function EmptyState({ className }: EmptyStateProps) {
           or battle strategies.
         </p>
         <p className="text-xs text-text-muted">
-          Try selecting a question from the sidebar or type your own below.
+          Try selecting a suggested question below or type your own message.
         </p>
       </div>
 

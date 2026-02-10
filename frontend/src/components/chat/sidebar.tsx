@@ -8,37 +8,31 @@
  */
 
 import { useState } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { MainLogo, MainLogoIcon } from "@/components/brand/main-logo";
 import { useTheme } from "@/hooks/use-theme";
+import { useTextSize } from "@/hooks/use-text-size";
 import {
   SwordIcon,
   BookIcon,
-  MapIcon,
   SettingsIcon,
   SunIcon,
   MoonIcon,
   TrashIcon,
 } from "./icons";
+import { usePathname } from "next/navigation";
 
-const EXAMPLE_QUESTIONS = [
+const PAGES = [
   {
+    href: "/",
+    label: "Chat",
     icon: SwordIcon,
-    text: "What happens in Chapter 1 of Fire Emblem?",
-    shortText: "Chapter 1",
-    category: "Story",
   },
   {
+    href: "/chapters",
+    label: "Chapters",
     icon: BookIcon,
-    text: "Who are the main characters in the prologue?",
-    shortText: "Characters",
-    category: "Characters",
-  },
-  {
-    icon: MapIcon,
-    text: "What are the objectives in Chapter 5?",
-    shortText: "Objectives",
-    category: "Strategy",
   },
 ];
 
@@ -57,6 +51,8 @@ export function Sidebar({
 }: SidebarProps) {
   const [isHovered, setIsHovered] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const pathname = usePathname();
+  useTextSize();
 
   return (
     <aside
@@ -84,34 +80,43 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Middle: Question Recommendations */}
       <div className="flex-1 overflow-y-auto py-4">
         <div className={cn("px-2 mb-2", isHovered ? "block" : "hidden")}>
-          <p className="text-xs text-text-muted px-2 mb-2">Try asking:</p>
+          <p className="text-xs text-text-muted px-2 mb-2">Pages</p>
         </div>
         <nav className="flex flex-col gap-1 px-2">
-          {EXAMPLE_QUESTIONS.map((question, index) => {
-            const Icon = question.icon;
+          {PAGES.map((page) => {
+            const Icon = page.icon;
+            const isActive = pathname === page.href;
             return (
-              <button
-                key={index}
-                onClick={() => onSelectQuestion?.(question.text)}
+              <Link
+                key={page.href}
+                href={page.href}
                 className={cn(
                   "group flex items-center gap-3 rounded-md",
                   "text-text-secondary hover:text-text-primary",
                   "hover:bg-surface-muted/50",
                   "transition-all duration-200",
                   isHovered ? "px-3 py-2.5" : "px-0 py-2.5 justify-center",
+                  isActive && "bg-surface-muted/60 text-text-primary",
                 )}
-                title={!isHovered ? question.text : undefined}
+                onClick={(event) => {
+                  if (page.href === "/") {
+                    if (pathname === "/") {
+                      event.preventDefault();
+                      return;
+                    }
+                    onClearChat?.();
+                  }
+                }}
               >
                 <Icon className="w-5 h-5 flex-shrink-0 text-brand-green" />
                 {isHovered && (
                   <span className="text-sm truncate animate-fade-in">
-                    {question.shortText}
+                    {page.label}
                   </span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -140,7 +145,8 @@ export function Sidebar({
           )}
         </button>
 
-        <button
+        <Link
+          href="/settings"
           className={cn(
             "flex items-center gap-3 rounded-md",
             "text-text-secondary hover:text-text-primary",
@@ -154,7 +160,7 @@ export function Sidebar({
           {isHovered && (
             <span className="text-sm animate-fade-in">Settings</span>
           )}
-        </button>
+        </Link>
 
         <button
           onClick={toggleTheme}

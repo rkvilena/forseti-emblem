@@ -6,3 +6,4 @@ backend/.venv
 **/.env
 .ruff_cache/
 .mypy_cache/
+backend/app/__init__.py

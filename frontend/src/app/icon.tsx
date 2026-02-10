@@ -21,37 +21,35 @@ export default function Icon() {
   const fontData = readFileSync(fontPath);
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#0d1117",
+        borderRadius: 7,
+      }}
+    >
       <div
         style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#0d1117",
-          borderRadius: 7,
+          fontFamily: "NocturneSerif",
+          fontStyle: "italic",
+          fontWeight: 600,
+          fontSize: 18,
+          lineHeight: 1,
+          letterSpacing: 0.5,
+          backgroundImage:
+            "linear-gradient(90deg, rgb(120,244,124), rgb(54,106,156))",
+          backgroundClip: "text",
+          WebkitBackgroundClip: "text",
+          color: "transparent",
         }}
       >
-        <div
-          style={{
-            fontFamily: "NocturneSerif",
-            fontStyle: "italic",
-            fontWeight: 600,
-            fontSize: 18,
-            lineHeight: 1,
-            letterSpacing: 0.5,
-            backgroundImage:
-              "linear-gradient(90deg, rgb(120,244,124), rgb(54,106,156))",
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            color: "transparent",
-          }}
-        >
-          FE
-        </div>
+        FE
       </div>
-    ),
+    </div>,
     {
       ...size,
       fonts: [

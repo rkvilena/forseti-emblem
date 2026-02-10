@@ -9,6 +9,7 @@ import type {
   RagChatRequest,
   HealthResponse,
   ApiError,
+  ChapterListResponse,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -101,6 +102,13 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify(request),
     });
+  },
+
+  /**
+   * List documented chapters grouped by game
+   */
+  listChapters: async (): Promise<ChapterListResponse> => {
+    return apiFetch<ChapterListResponse>("/chapters");
   },
 };
 
