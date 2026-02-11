@@ -1,0 +1,68 @@
+.markdown-body {
+  @apply prose prose-sm max-w-none font-[inherit];
+}
+
+html:not(.dark) .markdown-body {
+  @apply text-text-primary;
+}
+
+html.dark .markdown-body {
+  @apply text-text-primary prose-invert;
+}
+
+.markdown-body p {
+  @apply my-2 leading-relaxed text-text-primary;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  @apply text-text-primary;
+  font-family:
+    var(--font-brand), "Cormorant Garamond", "Cinzel", Georgia, serif;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.markdown-body strong {
+  @apply text-brand-teal;
+}
+
+html.dark .markdown-body strong {
+  @apply text-brand-blue;
+}
+
+.markdown-body code {
+  @apply text-brand-blue bg-surface-muted px-1 rounded;
+}
+
+.markdown-body pre {
+  @apply bg-surface-base border border-surface-border p-3 rounded-md overflow-x-auto;
+}
+
+.markdown-body ul {
+  @apply my-2 list-disc pl-5;
+}
+
+.markdown-body ol {
+  @apply my-2 list-decimal pl-5 text-text-primary;
+}
+
+.markdown-body li {
+  @apply my-0 leading-relaxed text-text-primary;
+}
+
+.markdown-body li::marker {
+  @apply text-brand-teal;
+}
+
+.markdown-body a {
+  @apply text-brand-blue no-underline hover:underline;
+}
+
+html.dark .markdown-body a {
+  @apply text-brand-blue;
+}

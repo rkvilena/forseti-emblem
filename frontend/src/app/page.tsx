@@ -33,7 +33,7 @@ export default function ChatPage() {
   );
 
   return (
-    <div className="relative isolate flex h-screen max-h-screen overflow-hidden bg-surface-base">
+    <div className="relative isolate flex h-screen max-h-screen overflow-hidden bg-surface-base parchment-bg">
       {/* Background layer (orbs + watermark) */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         {/* Gradient orbs */}
@@ -52,7 +52,7 @@ export default function ChatPage() {
       </div>
 
       {/* Sidebar */}
-      <div className="relative z-10">
+      <div className="relative z-10 parchment-panel">
         <Sidebar
           onSelectQuestion={handleSelectQuestion}
           onClearChat={clearMessages}

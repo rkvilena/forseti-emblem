@@ -111,7 +111,7 @@ export function ChatInput({
               "w-full resize-none rounded-lg",
               "px-4 py-3",
               "bg-surface-muted border border-surface-border",
-              "text-text-primary placeholder:text-text-muted",
+              "text-text-primary placeholder:text-text-secondary",
               "focus:outline-none focus:border-brand-teal focus:ring-1 focus:ring-brand-teal",
               "transition-colors duration-200",
               "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -130,7 +130,7 @@ export function ChatInput({
             "transition-all duration-200",
             canSubmit
               ? "bg-brand-teal text-white hover:bg-brand-green active:scale-95"
-              : "bg-surface-muted text-text-muted cursor-not-allowed",
+              : "bg-surface-muted text-text-secondary/70 cursor-not-allowed",
           )}
           aria-label="Send message"
         >
@@ -139,7 +139,7 @@ export function ChatInput({
       </div>
 
       {/* Helper text */}
-      <p className="text-xs text-text-muted text-center mt-2 opacity-60">
+      <p className="text-xs text-text-secondary text-center mt-2 opacity-60">
         Press Enter to send, Shift+Enter for new line
       </p>
     </form>

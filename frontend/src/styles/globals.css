@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,600&family=Inter:wght@300;400;500;600;700&display=swap");
+@import "./markdown.css";
 
 @tailwind base;
 @tailwind components;
@@ -18,10 +19,10 @@
   --brand-black: 6 8 14;
 
   /* Light mode surfaces/text */
-  --surface-base: 248 250 252;
-  --surface-elevated: 255 255 255;
-  --surface-muted: 241 245 249;
-  --surface-border: 226 232 240;
+  --surface-base: 230 220 204;
+  --surface-elevated: 236 226 210;
+  --surface-muted: 220 209 190;
+  --surface-border: 198 180 150;
 
   --text-primary: 15 23 42;
   --text-secondary: 51 65 85;
@@ -197,5 +198,33 @@ html.dark {
   /* Glass effect */
   .glass {
     @apply bg-surface-elevated/80 backdrop-blur-lg;
+  }
+
+  html:not(.dark) .parchment-bg {
+    background-color: rgb(var(--surface-base));
+    background-image: none;
+  }
+
+  html:not(.dark) .parchment-panel {
+    background-color: rgba(236, 226, 210, 0.97);
+    background-image:
+      radial-gradient(
+        circle at 100% 0,
+        rgba(255, 255, 255, 0.22) 0,
+        transparent 55%
+      ),
+      radial-gradient(
+        circle at 0 100%,
+        rgba(140, 120, 86, 0.26) 0,
+        transparent 60%
+      ),
+      radial-gradient(
+        circle at 30% 30%,
+        rgba(96, 80, 56, 0.08) 0,
+        transparent 70%
+      );
+    background-size: 560px 560px;
+    background-repeat: repeat;
+    background-blend-mode: multiply;
   }
 }

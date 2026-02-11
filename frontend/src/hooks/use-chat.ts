@@ -12,6 +12,15 @@ import { apiClient, ApiClientError } from "@/lib/api-client";
 import { generateId } from "@/lib/utils";
 import type { ChatMessage, RagChatRequest, ChatUsage } from "@/types";
 
+function unwrapMarkdownFence(text: string): string {
+  const trimmed = text.trim();
+  const match = trimmed.match(
+    /^```(?:\s*(?:markdown|md))?\s*[\r\n]+([\s\S]*?)\r?\n```$/i,
+  );
+  if (!match) return text;
+  return match[1];
+}
+
 interface UseChatOptions {
   /** Number of chunks to retrieve for RAG (1-30) */
   topK?: number;
@@ -72,7 +81,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         streamTimerRef.current = null;
       }
 
-      const text = fullText ?? "";
+      const rawText = fullText ?? "";
+      const text = unwrapMarkdownFence(rawText);
       const totalLength = text.length;
 
       // Keep updates bounded for long responses (~<=200 updates).

@@ -28,7 +28,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`dark ${nocturneSerif.variable}`}
     >
-      <body className="min-h-screen bg-surface-base antialiased">
+      <body className="min-h-screen bg-surface-base antialiased parchment-bg">
         {children}
       </body>
     </html>

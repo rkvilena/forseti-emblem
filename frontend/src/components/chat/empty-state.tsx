@@ -40,11 +40,6 @@ export function EmptyState({ className }: EmptyStateProps) {
           Try selecting a suggested question below or type your own message.
         </p>
       </div>
-
-      {/* Disclaimer */}
-      <p className="mt-12 text-xs text-text-muted text-center max-w-sm opacity-60">
-        Powered by RAG for accurate Fire Emblem information.
-      </p>
     </div>
   );
 }

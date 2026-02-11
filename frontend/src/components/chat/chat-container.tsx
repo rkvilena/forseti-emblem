@@ -69,7 +69,7 @@ export function ChatContainer({
         <div className="flex flex-col min-h-full">
           <EmptyState />
           <div className="w-full max-w-xl mx-auto px-4 pb-8">
-            <p className="text-xs text-text-muted mb-3">Try asking:</p>
+            <p className="text-xs text-text-muted mb-2">Try asking:</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {EXAMPLE_QUESTIONS.map((question) => {
                 const Icon = question.icon;
