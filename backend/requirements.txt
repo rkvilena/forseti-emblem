@@ -23,6 +23,9 @@ sqlalchemy
 psycopg[binary]
 pgvector
 
+# Caching / Rate limiting
+redis
+
 # Configuration
 pydantic-settings
 python-dotenv

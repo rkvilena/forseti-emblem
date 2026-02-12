@@ -85,6 +85,20 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
 
+    # Redis / Rate limiting
+    redis_url: str | None = Field(
+        default=None,
+        description="Redis connection URL for caching and rate limiting",
+    )
+    rate_limit_ip_requests: int = Field(
+        default=100,
+        description="Max number of requests per IP within the rate limit window",
+    )
+    rate_limit_ip_window_seconds: int = Field(
+        default=86400,
+        description="IP rate limit window size in seconds",
+    )
+
     # API Docs (Swagger/ReDoc)
     docs_auth_enabled: bool = Field(
         default=False,

@@ -8,6 +8,7 @@ from ..db import get_db
 from ..controllers import chat_controller
 from ..security.turnstile import verify_turnstile_token
 from ..schemas.chat import ChatRequest, ChatResponse, RagChatRequest
+from ..rate_limit import enforce_ip_rate_limit
 
 
 router = APIRouter(tags=["chat"])
@@ -17,6 +18,10 @@ router = APIRouter(tags=["chat"])
 def chat(req: ChatRequest, request: Request) -> Any:
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="message must not be empty")
+
+    # enforce IP rate limiting before Turnstile verification
+    client_ip = request.client.host if request.client else None
+    enforce_ip_rate_limit(client_ip, scope="chat")
 
     if settings.turnstile_enabled:
         if not req.turnstile_token:
@@ -60,6 +65,10 @@ def chat_rag(
     """RAG chat: embeds the question, retrieves similar DB chunks, and asks OpenAI with that context."""
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="message must not be empty")
+
+    # Enforce IP rate limiting before Turnstile verification
+    client_ip = request.client.host if request.client else None
+    enforce_ip_rate_limit(client_ip, scope="chat_rag")
 
     if settings.turnstile_enabled:
         if not req.turnstile_token:
