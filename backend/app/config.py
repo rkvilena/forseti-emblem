@@ -64,6 +64,16 @@ class Settings(BaseSettings):
         description="OpenAI chat model for RAG responses",
     )
 
+    # Cloudflare Turnstile
+    turnstile_secret_key: str = Field(
+        default="",
+        description="Cloudflare Turnstile secret key",
+    )
+    turnstile_enabled: bool = Field(
+        default=True,
+        description="Enable Cloudflare Turnstile verification",
+    )
+
     # Server
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8000, description="Server port")

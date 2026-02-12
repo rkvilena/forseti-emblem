@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "@/styles/globals.css";
 import { nocturneSerif } from "@/styles/fonts";
 
@@ -29,6 +30,12 @@ export default function RootLayout({
       className={`dark ${nocturneSerif.variable}`}
     >
       <body className="min-h-screen bg-surface-base antialiased parchment-bg">
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          strategy="afterInteractive"
+          async
+          defer
+        />
         {children}
       </body>
     </html>

@@ -7,7 +7,7 @@
  * Features a collapsible sidebar layout inspired by modern chat UIs.
  */
 
-import { useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useChat } from "@/hooks/use-chat";
 import { Sidebar, ChatContainer, ChatInput } from "@/components/chat";
 import { MainLogo } from "@/components/brand/main-logo";
@@ -18,18 +18,34 @@ export default function ChatPage() {
     temperature: 0.3,
   });
 
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileNotice, setTurnstileNotice] = useState<string | null>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
+
   const handleSendMessage = useCallback(
-    (content: string) => {
-      sendMessage(content);
+    (content: string, turnstileToken: string) => {
+      setTurnstileNotice(null);
+      sendMessage(content, turnstileToken);
     },
     [sendMessage],
   );
 
   const handleSelectQuestion = useCallback(
     (question: string) => {
-      sendMessage(question);
+      if (!turnstileToken) {
+        setTurnstileNotice("Please complete the Turnstile check to continue.");
+        return;
+      }
+
+      setTurnstileNotice(null);
+      sendMessage(question, turnstileToken);
+      setTurnstileToken(null);
+
+      if (turnstileWidgetIdRef.current && window.turnstile) {
+        window.turnstile.reset(turnstileWidgetIdRef.current);
+      }
     },
-    [sendMessage],
+    [sendMessage, turnstileToken],
   );
 
   return (
@@ -74,6 +90,11 @@ export default function ChatPage() {
         {/* Input Area */}
         <ChatInput
           onSend={handleSendMessage}
+          onTokenChange={setTurnstileToken}
+          onWidgetReady={(widgetId) => {
+            turnstileWidgetIdRef.current = widgetId;
+          }}
+          externalError={turnstileNotice}
           isLoading={isLoading}
           placeholder="Ask about Fire Emblem chapters..."
         />

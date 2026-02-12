@@ -17,6 +17,7 @@ export interface ChatResponse {
 
 export interface ChatRequest {
   message: string;
+  turnstile_token?: string | null;
   system_prompt?: string | null;
   context?: string | null;
   temperature?: number;
@@ -24,6 +25,7 @@ export interface ChatRequest {
 
 export interface RagChatRequest {
   message: string;
+  turnstile_token?: string | null;
   top_k?: number;
   temperature?: number;
   system_prompt?: string | null;

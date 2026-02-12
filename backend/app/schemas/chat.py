@@ -5,6 +5,11 @@ class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     message: str = Field(..., min_length=1, description="User prompt")
+    turnstile_token: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Cloudflare Turnstile token",
+    )
     system_prompt: str | None = Field(
         default=None,
         description="Optional system prompt override. Defaults to Fire Emblem assistant prompt.",
@@ -20,6 +25,11 @@ class RagChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     message: str = Field(..., min_length=1, description="User prompt")
+    turnstile_token: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Cloudflare Turnstile token",
+    )
     top_k: int = Field(
         default=8, ge=1, le=30, description="How many chunks to retrieve"
     )

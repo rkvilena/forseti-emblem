@@ -40,7 +40,10 @@ interface UseChatReturn {
   /** Current error if any */
   error: Error | null;
   /** Send a new message */
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (
+    content: string,
+    turnstileToken?: string | null,
+  ) => Promise<void>;
   /** Clear all messages */
   clearMessages: () => void;
   /** Retry the last failed message */
@@ -137,7 +140,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
   );
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, turnstileToken?: string | null) => {
       if (!content.trim() || isLoading) return;
 
       setError(null);
@@ -169,6 +172,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
       try {
         const request: RagChatRequest = {
           message: content.trim(),
+          turnstile_token: turnstileToken ?? null,
           top_k: topK,
           temperature,
           system_prompt: systemPrompt,
@@ -229,7 +233,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     if (lastUserMessageRef.current) {
       // Remove the last two messages (user + error/response)
       setMessages((prev: ChatMessage[]) => prev.slice(0, -2));
-      await sendMessage(lastUserMessageRef.current);
+      await sendMessage(lastUserMessageRef.current, null);
     }
   }, [sendMessage]);
 

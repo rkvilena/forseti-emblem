@@ -101,12 +101,8 @@ export function Sidebar({
                   isActive && "bg-surface-muted/60 text-text-primary",
                 )}
                 onClick={(event) => {
-                  if (page.href === "/") {
-                    if (pathname === "/") {
-                      event.preventDefault();
-                      return;
-                    }
-                    onClearChat?.();
+                  if (page.href === "/" && pathname === "/") {
+                    event.preventDefault();
                   }
                 }}
               >
