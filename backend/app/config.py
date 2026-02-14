@@ -90,13 +90,21 @@ class Settings(BaseSettings):
         default=None,
         description="Redis connection URL for caching and rate limiting",
     )
-    rate_limit_ip_requests: int = Field(
-        default=100,
-        description="Max number of requests per IP within the rate limit window",
+    rate_limit_short_window_seconds: int = Field(
+        default=60,
+        description="Short-window size in seconds for IP rate limiting",
     )
-    rate_limit_ip_window_seconds: int = Field(
+    rate_limit_short_ip_requests: int = Field(
+        default=3,
+        description="Max number of requests per IP within the short window",
+    )
+    rate_limit_long_window_seconds: int = Field(
         default=86400,
-        description="IP rate limit window size in seconds",
+        description="Long-window size in seconds for IP rate limiting",
+    )
+    rate_limit_long_ip_requests: int = Field(
+        default=25,
+        description="Max number of requests per IP within the long window",
     )
 
     # API Docs (Swagger/ReDoc)

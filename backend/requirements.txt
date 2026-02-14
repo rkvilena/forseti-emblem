@@ -33,6 +33,7 @@ python-dotenv
 # OpenAI
 openai
 
-# Dev tooling (formatter/typecheck)
+# Dev tooling (formatter/typecheck/tests)
 ruff
 mypy
+pytest

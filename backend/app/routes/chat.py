@@ -19,7 +19,6 @@ def chat(req: ChatRequest, request: Request) -> Any:
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="message must not be empty")
 
-    # enforce IP rate limiting before Turnstile verification
     client_ip = request.client.host if request.client else None
     enforce_ip_rate_limit(client_ip, scope="chat")
 
@@ -66,7 +65,6 @@ def chat_rag(
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="message must not be empty")
 
-    # Enforce IP rate limiting before Turnstile verification
     client_ip = request.client.host if request.client else None
     enforce_ip_rate_limit(client_ip, scope="chat_rag")
 
