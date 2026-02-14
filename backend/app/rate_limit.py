@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 import redis
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Request, Response, status
 
 from .config import settings
 
@@ -50,7 +50,10 @@ def enforce_ip_rate_limit(ip: Optional[str], *, scope: str = "chat") -> None:
 
     client = get_redis_client()
     if client is None:
-        return
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Rate limiting backend is unavailable",
+        )
 
     short_window = settings.rate_limit_short_window_seconds
     long_window = settings.rate_limit_long_window_seconds
@@ -84,3 +87,50 @@ def enforce_ip_rate_limit(ip: Optional[str], *, scope: str = "chat") -> None:
     except Exception as exc:  # pragma: no cover - defensive
         # On Redis errors, degrade gracefully and do not block the request.
         logger.error("IP rate limiting failed: %s", exc)
+
+
+def enforce_session_quota(request: Request, response: Response, *, scope: str) -> None:
+    client = get_redis_client()
+    if client is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Rate limiting backend is unavailable",
+        )
+
+    session_id = request.cookies.get(settings.session_cookie_name)
+    if not session_id:
+        import secrets
+
+        session_id = secrets.token_urlsafe(18)
+        max_age = max(1, int(settings.session_cookie_ttl_seconds))
+        secure = bool(settings.is_production)
+        response.set_cookie(
+            key=settings.session_cookie_name,
+            value=session_id,
+            max_age=max_age,
+            httponly=True,
+            secure=secure,
+            samesite="lax",
+            path="/",
+        )
+
+    long_window = settings.rate_limit_long_window_seconds
+    long_max = settings.session_rate_limit_long_ip_requests
+
+    key_long = f"session:{scope}:{session_id}"
+
+    try:
+        with client.pipeline() as pipe:
+            pipe.incr(key_long)
+            pipe.expire(key_long, long_window)
+            count_long, _ = pipe.execute()
+
+        if isinstance(count_long, int) and count_long > long_max:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Rate limit exceeded for this session. Please try again later.",
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Session rate limiting failed: %s", exc)

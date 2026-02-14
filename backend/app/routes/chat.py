@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -8,19 +8,20 @@ from ..db import get_db
 from ..controllers import chat_controller
 from ..security.turnstile import verify_turnstile_token
 from ..schemas.chat import ChatRequest, ChatResponse, RagChatRequest
-from ..rate_limit import enforce_ip_rate_limit
+from ..rate_limit import enforce_ip_rate_limit, enforce_session_quota
 
 
 router = APIRouter(tags=["chat"])
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, request: Request) -> Any:
+def chat(req: ChatRequest, request: Request, response: Response) -> Any:
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="message must not be empty")
 
     client_ip = request.client.host if request.client else None
     enforce_ip_rate_limit(client_ip, scope="chat")
+    enforce_session_quota(request, response, scope="chat")
 
     if settings.turnstile_enabled:
         if not req.turnstile_token:
@@ -59,6 +60,7 @@ def chat(req: ChatRequest, request: Request) -> Any:
 def chat_rag(
     req: RagChatRequest,
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> Any:
     """RAG chat: embeds the question, retrieves similar DB chunks, and asks OpenAI with that context."""
@@ -67,6 +69,7 @@ def chat_rag(
 
     client_ip = request.client.host if request.client else None
     enforce_ip_rate_limit(client_ip, scope="chat_rag")
+    enforce_session_quota(request, response, scope="chat_rag")
 
     if settings.turnstile_enabled:
         if not req.turnstile_token:

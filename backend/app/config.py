@@ -106,6 +106,18 @@ class Settings(BaseSettings):
         default=25,
         description="Max number of requests per IP within the long window",
     )
+    session_rate_limit_long_ip_requests: int = Field(
+        default=15,
+        description="Max number of requests per anonymous session within the long window",
+    )
+    session_cookie_name: str = Field(
+        default="fe_anon_session",
+        description="Cookie name for anonymous chat sessions",
+    )
+    session_cookie_ttl_seconds: int = Field(
+        default=86400,
+        description="TTL for anonymous session cookie (seconds)",
+    )
 
     # API Docs (Swagger/ReDoc)
     docs_auth_enabled: bool = Field(

@@ -121,14 +121,18 @@ def test_exceed_long_window_raises(
 def test_no_ip_skips_limiting(
     fake_redis: dict[str, int], restore_rate_limits: None
 ) -> None:
-    """Passing ip=None should be a no-op and not raise."""
+    """Passing ip=None should return HTTP 400 and not hit Redis."""
     with pytest.raises(HTTPException) as exc_info:
         rate_limit.enforce_ip_rate_limit(None, scope="chat_rag")
 
     assert exc_info.value.status_code == 400
 
 
-def test_no_redis_client_is_noop(monkeypatch: pytest.MonkeyPatch) -> None:
-    """If Redis is unavailable, rate limiting should degrade to a no-op."""
+def test_no_redis_client_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """If Redis is unavailable, enforcing the limit should raise HTTP 500."""
     monkeypatch.setattr(rate_limit, "get_redis_client", lambda: None)
-    rate_limit.enforce_ip_rate_limit("1.2.3.4", scope="chat")
+
+    with pytest.raises(HTTPException) as exc_info:
+        rate_limit.enforce_ip_rate_limit("1.2.3.4", scope="chat")
+
+    assert exc_info.value.status_code == 500
