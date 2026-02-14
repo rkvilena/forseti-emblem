@@ -119,6 +119,28 @@ class Settings(BaseSettings):
         description="TTL for anonymous session cookie (seconds)",
     )
 
+    # Cost controls
+    request_max_chars: int = Field(
+        default=300,
+        description="Maximum allowed message length in characters for chat endpoints",
+    )
+    rag_top_k_max: int = Field(
+        default=8,
+        description="Maximum allowed top_k for RAG retrieval",
+    )
+    session_cooldown_threshold: int = Field(
+        default=3,
+        description="Number of rapid requests per session before cooldown applies",
+    )
+    session_cooldown_window_seconds: int = Field(
+        default=60,
+        description="Window size in seconds to measure cooldown threshold",
+    )
+    session_cooldown_duration_seconds: int = Field(
+        default=30,
+        description="Cooldown duration in seconds after threshold is exceeded",
+    )
+
     # API Docs (Swagger/ReDoc)
     docs_auth_enabled: bool = Field(
         default=False,

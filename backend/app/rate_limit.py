@@ -134,3 +134,61 @@ def enforce_session_quota(request: Request, response: Response, *, scope: str) -
         raise
     except Exception as exc:  # pragma: no cover - defensive
         logger.error("Session rate limiting failed: %s", exc)
+
+
+def enforce_session_cooldown(
+    request: Request, response: Response, *, scope: str
+) -> None:
+    client = get_redis_client()
+    if client is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Rate limiting backend is unavailable",
+        )
+
+    session_id = request.cookies.get(settings.session_cookie_name)
+    if not session_id:
+        import secrets
+
+        session_id = secrets.token_urlsafe(18)
+        max_age = max(1, int(settings.session_cookie_ttl_seconds))
+        secure = bool(settings.is_production)
+        response.set_cookie(
+            key=settings.session_cookie_name,
+            value=session_id,
+            max_age=max_age,
+            httponly=True,
+            secure=secure,
+            samesite="lax",
+            path="/",
+        )
+
+    window = settings.session_cooldown_window_seconds
+    threshold = settings.session_cooldown_threshold
+    cooldown = settings.session_cooldown_duration_seconds
+
+    key_count = f"cooldown:{scope}:c:{session_id}"
+    key_block = f"cooldown:{scope}:b:{session_id}"
+
+    try:
+        if client.get(key_block):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Cooldown in effect for this session. Please wait before sending more questions.",
+            )
+
+        with client.pipeline() as pipe:
+            pipe.incr(key_count)
+            pipe.expire(key_count, window)
+            count, _ = pipe.execute()
+
+        if isinstance(count, int) and count > threshold:
+            client.setex(key_block, cooldown, b"1")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Cooldown in effect for this session. Please wait before sending more questions.",
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Session cooldown enforcement failed: %s", exc)

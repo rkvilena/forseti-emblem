@@ -37,6 +37,7 @@ interface ChatInputProps {
 
 // Max height before showing scrollbar (approximately 4 lines)
 const MAX_TEXTAREA_HEIGHT = 120;
+const MAX_MESSAGE_CHARS = 300;
 
 export function ChatInput({
   onSend,
@@ -190,7 +191,8 @@ export function ChatInput({
             ref={textareaRef}
             value={message}
             onChange={(e) => {
-              setMessage(e.target.value);
+              const next = e.target.value.slice(0, MAX_MESSAGE_CHARS);
+              setMessage(next);
               adjustTextareaHeight();
             }}
             onKeyDown={handleKeyDown}
@@ -207,6 +209,7 @@ export function ChatInput({
               "disabled:opacity-50 disabled:cursor-not-allowed",
               "min-h-[48px]",
             )}
+            maxLength={MAX_MESSAGE_CHARS}
             style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
           />
         </div>
@@ -269,7 +272,10 @@ export function ChatInput({
         )}
         {turnstileError && <p className="text-red-400">{turnstileError}</p>}
         {externalError && <p className="text-red-400">{externalError}</p>}
-        <p>Press Enter to send, Shift+Enter for new line</p>
+        <p>
+          {message.length}/{MAX_MESSAGE_CHARS} characters &mdash; Press Enter to
+          send, Shift+Enter for new line
+        </p>
       </div>
     </form>
   );
