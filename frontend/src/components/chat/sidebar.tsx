@@ -20,6 +20,7 @@ import {
   SunIcon,
   MoonIcon,
   TrashIcon,
+  SparkleIcon,
 } from "./icons";
 import { usePathname } from "next/navigation";
 
@@ -33,6 +34,11 @@ const PAGES = [
     href: "/chapters",
     label: "Chapters",
     icon: BookIcon,
+  },
+  {
+    href: "/about",
+    label: "About",
+    icon: SparkleIcon,
   },
 ];
 
