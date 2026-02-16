@@ -10,7 +10,12 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { generateId } from "@/lib/utils";
-import type { ChatMessage, RagChatRequest, ChatUsage } from "@/types";
+import type {
+  ChatMessage,
+  RagChatRequest,
+  ChatUsage,
+  SourceReference,
+} from "@/types";
 
 function unwrapMarkdownFence(text: string): string {
   const trimmed = text.trim();
@@ -20,6 +25,12 @@ function unwrapMarkdownFence(text: string): string {
   if (!match) return text;
   return match[1];
 }
+
+const STORAGE_KEY = "forsetiemblem_chat_history_v1";
+
+type StoredChatMessage = Omit<ChatMessage, "timestamp"> & {
+  timestamp: string;
+};
 
 interface UseChatOptions {
   /** Number of chunks to retrieve for RAG (1-30) */
@@ -62,6 +73,63 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
   const streamTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as StoredChatMessage[] | unknown;
+      if (!Array.isArray(parsed)) return;
+
+      const restored: ChatMessage[] = parsed
+        .map((item) => {
+          if (
+            !item ||
+            typeof item !== "object" ||
+            typeof (item as StoredChatMessage).id !== "string" ||
+            ((item as StoredChatMessage).role !== "user" &&
+              (item as StoredChatMessage).role !== "assistant") ||
+            typeof (item as StoredChatMessage).content !== "string" ||
+            typeof (item as StoredChatMessage).timestamp !== "string"
+          ) {
+            return null;
+          }
+
+          const timestamp = new Date((item as StoredChatMessage).timestamp);
+          if (Number.isNaN(timestamp.getTime())) {
+            return null;
+          }
+
+          const { timestamp: _ts, ...rest } = item as StoredChatMessage;
+
+          return {
+            ...rest,
+            timestamp,
+          } as ChatMessage;
+        })
+        .filter((msg): msg is ChatMessage => msg !== null);
+
+      if (restored.length > 0) {
+        setMessages(restored);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const toStore: StoredChatMessage[] = messages.map((msg) => ({
+        ...msg,
+        timestamp: msg.timestamp.toISOString(),
+      }));
+
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+    } catch {}
+  }, [messages]);
+
+  useEffect(() => {
     return () => {
       if (streamTimerRef.current) {
         window.clearInterval(streamTimerRef.current);
@@ -76,8 +144,9 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
       fullText: string;
       model?: string;
       usage?: ChatUsage | null;
+      sources?: SourceReference[] | null;
     }) => {
-      const { messageId, fullText, model, usage } = args;
+      const { messageId, fullText, model, usage, sources } = args;
 
       if (streamTimerRef.current) {
         window.clearInterval(streamTimerRef.current);
@@ -110,6 +179,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                       ? {
                           model,
                           usage,
+                          sources,
                         }
                       : null),
                   }
@@ -186,6 +256,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
           fullText: response.response,
           model: response.model,
           usage: response.usage,
+          sources: response.sources ?? null,
         });
       } catch (err) {
         const error =
@@ -227,6 +298,11 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     setMessages([]);
     setError(null);
     lastUserMessageRef.current = null;
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch {}
+    }
   }, []);
 
   const retryLastMessage = useCallback(async () => {

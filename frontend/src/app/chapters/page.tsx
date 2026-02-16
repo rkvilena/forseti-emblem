@@ -5,6 +5,7 @@ import apiClient from "@/lib/api-client";
 import type { ChapterListResponse } from "@/types";
 import { Sidebar } from "@/components/chat";
 import { MainLogo } from "@/components/brand/main-logo";
+import { DISCLAIMER_TEXT } from "@/components/prop/sites";
 
 export default function ChaptersPage() {
   const [data, setData] = useState<ChapterListResponse | null>(null);
@@ -55,7 +56,7 @@ export default function ChaptersPage() {
         )}
       </div>
 
-      <div className="relative z-10">
+      <div className="relative z-30">
         <Sidebar hasMessages={false} />
       </div>
 
@@ -94,8 +95,21 @@ export default function ChaptersPage() {
                       <hr className="border-brand-gold/70" />
                       <ul className="space-y-1 text-sm text-muted-foreground">
                         {group.chapters.map((chapter) => {
-                          const displayTitle =
+                          const baseTitle =
                             chapter.infobox_title || chapter.title;
+                          const fullTitle = chapter.title;
+                          let displayTitle = baseTitle;
+
+                          const parenIndex = fullTitle.indexOf(" (");
+                          if (
+                            parenIndex !== -1 &&
+                            fullTitle !== baseTitle &&
+                            parenIndex < fullTitle.length - 2
+                          ) {
+                            const suffix = fullTitle.slice(parenIndex);
+                            displayTitle = `${baseTitle}${suffix}`;
+                          }
+
                           return (
                             <li key={chapter.id} className="leading-snug">
                               {displayTitle}
@@ -108,6 +122,9 @@ export default function ChaptersPage() {
                 })}
               </div>
             )}
+            <footer className="pt-4 text-xs text-text-muted text-center lg:fixed lg:bottom-4 lg:left-0 lg:right-0 lg:pt-0 lg:px-6">
+              {DISCLAIMER_TEXT}
+            </footer>
           </div>
         </div>
       </main>

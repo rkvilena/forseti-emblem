@@ -87,6 +87,21 @@ def ingest_chapter(
     )
 
 
+@router.post("/wiki/page/{title}/reingest", response_model=WikiIngestResponse)
+def reingest_chapter(
+    title: str,
+    generate_embeddings: bool = Query(
+        True, description="Generate OpenAI embeddings for chunks"
+    ),
+    db: Session = Depends(get_db),
+) -> dict:
+    return wiki_controller.reingest_chapter_from_wikitext(
+        db=db,
+        title=title,
+        generate_embeddings=generate_embeddings,
+    )
+
+
 @router.get("/chapters", response_model=ChapterListResponse)
 def list_documented_chapters(db: Session = Depends(get_db)) -> ChapterListResponse:
     """Return all documented chapters grouped by game."""

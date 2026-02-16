@@ -8,6 +8,9 @@ export interface SiteLink {
   Icon: (props: IconProps) => JSX.Element;
 }
 
+export const DISCLAIMER_TEXT =
+  "This is a non-commercial portfolio project. Data is retrieved from the Fire Emblem Wiki under CC BY-SA 3.0. Fire Emblem and all related characters are trademarks of Nintendo.";
+
 export function GithubIcon(props: IconProps) {
   return (
     <svg

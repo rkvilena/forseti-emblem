@@ -73,7 +73,9 @@ def build_chapter_records_from_wikitext(
     units_gained = field_map.get("Units Gained") or field_map.get("units gained")
     boss = field_map.get("Boss") or field_map.get("boss name")
 
-    # Create Chapter record
+    url_title = title.replace(" ", "_")
+    source_url = f"https://fireemblem.fandom.com/wiki/{url_title}"
+
     chapter_row = Chapter(
         pageid=pageid,
         title=title,
@@ -83,6 +85,7 @@ def build_chapter_records_from_wikitext(
         units_allowed=units_allowed,
         units_gained=units_gained,
         boss=boss,
+        source_url=source_url,
         raw_infobox=infobox,
     )
 
@@ -204,6 +207,64 @@ def ingest_chapter_to_db(
 
     logger.info(f"Ingested chapter: {title} with {len(chunks)} chunks")
     return chapter_row
+
+
+def reingest_chapter_to_db(
+    db: Session,
+    pageid: int,
+    title: str,
+    chapter_data: dict[str, Any],
+    generate_embeddings: bool = True,
+) -> Chapter:
+    chapter_row, chunks = build_chapter_records_from_wikitext(
+        pageid, title, chapter_data
+    )
+
+    existing = db.query(Chapter).filter(Chapter.pageid == pageid).first()
+
+    if existing is None:
+        return ingest_chapter_to_db(
+            db=db,
+            pageid=pageid,
+            title=title,
+            chapter_data=chapter_data,
+            generate_embeddings=generate_embeddings,
+        )
+
+    if generate_embeddings and chunks:
+        logger.info(f"Regenerating embeddings for {len(chunks)} chunks...")
+        try:
+            texts = [chunk.text for chunk in chunks]
+            embeddings = create_embeddings_batch(texts)
+            for chunk, embedding in zip(chunks, embeddings):
+                chunk.embedding = embedding
+            logger.info(f"Generated {len(embeddings)} embeddings")
+        except Exception as e:
+            logger.warning(
+                f"Failed to generate embeddings during reingest: {e}. Chunks will be stored without embeddings."
+            )
+
+    db.query(ChapterChunk).filter(ChapterChunk.chapter_id == existing.id).delete()
+
+    existing.title = chapter_row.title
+    existing.infobox_title = chapter_row.infobox_title
+    existing.game = chapter_row.game
+    existing.objective = chapter_row.objective
+    existing.units_allowed = chapter_row.units_allowed
+    existing.units_gained = chapter_row.units_gained
+    existing.boss = chapter_row.boss
+    existing.raw_infobox = chapter_row.raw_infobox
+    existing.source_url = chapter_row.source_url
+
+    for chunk in chunks:
+        chunk.chapter = existing
+
+    db.add(existing)
+    db.commit()
+    db.refresh(existing)
+
+    logger.info(f"Reingested chapter: {title} with {len(chunks)} chunks")
+    return existing
 
 
 # Keep old function for backward compatibility

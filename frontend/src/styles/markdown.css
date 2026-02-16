@@ -21,10 +21,20 @@ html.dark .markdown-body {
 .markdown-body h5,
 .markdown-body h6 {
   @apply text-text-primary;
-  font-family:
-    var(--font-brand), "Cormorant Garamond", "Cinzel", Georgia, serif;
-  font-style: italic;
-  font-weight: 600;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.markdown-body h1 {
+  @apply text-2xl;
+}
+
+.markdown-body h2 {
+  @apply text-xl;
+}
+
+.markdown-body h3 {
+  @apply text-lg;
 }
 
 .markdown-body strong {

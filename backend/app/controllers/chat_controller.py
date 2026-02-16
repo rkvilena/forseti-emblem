@@ -52,8 +52,56 @@ def chat_rag(
         temperature=temperature,
     )
 
+    sources = []
+    seen_chapter_ids = set()
+
+    for chunk in chunks:
+        chapter = getattr(chunk, "chapter", None)
+        if chapter is None:
+            continue
+
+        chapter_id = getattr(chapter, "id", None)
+        if chapter_id is None or chapter_id in seen_chapter_ids:
+            continue
+
+        seen_chapter_ids.add(chapter_id)
+
+        sources.append(
+            {
+                "title": getattr(chapter, "title", ""),
+                "infobox_title": getattr(chapter, "infobox_title", None),
+                "game": getattr(chapter, "game", None),
+                "pageid": getattr(chapter, "pageid", 0),
+                "source_url": getattr(chapter, "source_url", None),
+            }
+        )
+
+    message_lower = message.lower()
+
+    filtered_sources = []
+    for source in sources:
+        match = False
+        for key in ("infobox_title", "title"):
+            value = source.get(key)
+            if isinstance(value, str) and value and value.lower() in message_lower:
+                match = True
+                break
+
+        if not match:
+            game = source.get("game")
+            if isinstance(game, str) and game:
+                cleaned_game = game.strip("[]")
+                if cleaned_game.lower() in message_lower:
+                    match = True
+
+        if match:
+            filtered_sources.append(source)
+
+    sources_to_return = filtered_sources
+
     return {
         "response": result,
         "model": settings.openai_chat_model,
         "usage": usage,
+        "sources": sources_to_return or None,
     }

@@ -46,7 +46,16 @@ class ChatUsage(BaseModel):
     total_tokens: int | None = None
 
 
+class SourceReference(BaseModel):
+    title: str
+    infobox_title: str | None = None
+    game: str | None = None
+    pageid: int
+    source_url: str | None = None
+
+
 class ChatResponse(BaseModel):
     response: str
     model: str
     usage: ChatUsage | None = None
+    sources: list[SourceReference] | None = None

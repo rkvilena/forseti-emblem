@@ -12,7 +12,7 @@ export default function AboutPage() {
         <div className="absolute -bottom-1/4 -left-1/4 w-1/2 h-1/2 bg-brand-green/5 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-10 parchment-panel">
+      <div className="relative z-30 parchment-panel">
         <Sidebar hasMessages={false} />
       </div>
 
@@ -27,7 +27,8 @@ export default function AboutPage() {
                 each chapters of the games. This site covers pretty much every
                 chapters of the mainline games. Currently users has limit of 15
                 request per day, so please be patient if you want to ask about
-                multiple chapters at once.
+                multiple chapters at once. The UI of this site will be improved
+                bit by bit over time.
               </p>
               <p className="text-text-secondary">
                 The source I pulled for feeding this site is from

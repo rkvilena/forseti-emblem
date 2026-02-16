@@ -16,6 +16,7 @@ import {
   FormEvent,
 } from "react";
 import { cn } from "@/lib/utils";
+import { DISCLAIMER_TEXT } from "@/components/prop/sites";
 import { SendIcon } from "./icons";
 
 interface ChatInputProps {
@@ -51,6 +52,7 @@ export function ChatInput({
   const [message, setMessage] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState<string | null>(null);
+  const [isTurnstileOpen, setIsTurnstileOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetIdRef = useRef<string | null>(null);
@@ -184,7 +186,7 @@ export function ChatInput({
         className,
       )}
     >
-      <div className="relative flex items-center gap-2 max-w-6xl mx-20">
+      <div className="relative flex items-center gap-2 max-w-6xl mx-4 lg:mx-20">
         {/* Input container */}
         <div className="relative flex-1 flex">
           <textarea
@@ -232,32 +234,26 @@ export function ChatInput({
           </button>
 
           {turnstileSiteKey && (
-            <>
-              <div
+            <button
+              type="button"
+              onClick={() => setIsTurnstileOpen(true)}
+              className={cn(
+                "hidden md:flex items-center gap-2 rounded-full border border-surface-border",
+                "bg-surface-elevated/80 px-3 py-2 text-xs",
+                "text-text-secondary hover:text-text-primary hover:bg-surface-muted/80",
+                "transition-colors duration-200",
+                turnstileToken && "opacity-80",
+              )}
+            >
+              <span
                 className={cn(
-                  "flex items-center gap-3",
-                  "rounded-md border border-surface-border bg-surface-elevated/70",
-                  "px-3 py-2 text-xs",
-                  turnstileToken ? "opacity-70" : "opacity-100",
+                  "h-2 w-2 rounded-full",
+                  turnstileToken ? "bg-brand-green" : "bg-brand-gold",
                 )}
-              >
-                <div className="flex items-center gap-2 text-text-secondary">
-                  <span
-                    className={cn(
-                      "h-2 w-2 rounded-full",
-                      turnstileToken ? "bg-brand-green" : "bg-brand-gold",
-                    )}
-                    aria-hidden="true"
-                  />
-                  <span>
-                    {turnstileToken ? "Verified" : "Human check required"}
-                  </span>
-                </div>
-              </div>
-              <div className="rounded-xl">
-                <div ref={turnstileRef} />
-              </div>
-            </>
+                aria-hidden="true"
+              />
+              <span>{turnstileToken ? "Verified" : "Verify"}</span>
+            </button>
           )}
         </div>
       </div>
@@ -276,7 +272,70 @@ export function ChatInput({
           {message.length}/{MAX_MESSAGE_CHARS} characters &mdash; Press Enter to
           send, Shift+Enter for new line
         </p>
+        <p>{DISCLAIMER_TEXT}</p>
       </div>
+
+      {turnstileSiteKey && (
+        <div className="mt-3 flex justify-center md:hidden">
+          <button
+            type="button"
+            onClick={() => setIsTurnstileOpen(true)}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border border-surface-border",
+              "bg-surface-elevated/80 px-3 py-2 text-xs",
+              "text-text-secondary hover:text-text-primary hover:bg-surface-muted/80",
+              "transition-colors duration-200",
+              turnstileToken && "opacity-80",
+            )}
+          >
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                turnstileToken ? "bg-brand-green" : "bg-brand-gold",
+              )}
+              aria-hidden="true"
+            />
+            <span>{turnstileToken ? "Verified" : "Verify"}</span>
+          </button>
+        </div>
+      )}
+
+      {turnstileSiteKey && (
+        <div
+          className={cn(
+            "fixed inset-0 z-40 flex items-end justify-center bg-black/40 transition-opacity duration-200",
+            isTurnstileOpen
+              ? "opacity-100 pointer-events-auto"
+              : "opacity-0 pointer-events-none",
+          )}
+        >
+          <div className="w-full max-w-md rounded-t-2xl bg-surface-elevated border-t-4 border-brand-gold/70 p-4 shadow-xl">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold text-text-secondary">
+                Human verification
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTurnstileOpen(false)}
+                className="text-xs text-text-secondary hover:text-text-primary px-2 py-1 rounded-md hover:bg-surface-muted/80 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-3 rounded-xl bg-surface-muted p-2 flex items-center justify-center">
+              <div ref={turnstileRef} />
+            </div>
+            {turnstileError && (
+              <p className="mt-2 text-xs text-red-400 text-center">
+                {turnstileError}
+              </p>
+            )}
+            <p className="mt-2 text-[11px] text-text-muted text-center">
+              Complete the check once, then continue chatting normally.
+            </p>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

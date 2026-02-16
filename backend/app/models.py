@@ -28,6 +28,7 @@ class Chapter(Base):
     units_allowed = Column(Integer, nullable=True)
     units_gained = Column(Text, nullable=True)
     boss = Column(Text, nullable=True)
+    source_url = Column(String(512), nullable=True)
     raw_infobox = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

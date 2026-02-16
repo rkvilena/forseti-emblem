@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/chat";
 import { MainLogo } from "@/components/brand/main-logo";
 import { useTextSize, type TextSize } from "@/hooks/use-text-size";
+import { DISCLAIMER_TEXT } from "@/components/prop/sites";
 
 const OPTIONS: { value: TextSize; label: string }[] = [
   { value: "sm", label: "Small" },
@@ -33,7 +34,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="relative z-10">
+      <div className="relative z-30">
         <Sidebar hasMessages={false} />
       </div>
 
@@ -83,6 +84,9 @@ export default function SettingsPage() {
                 </div>
               </div>
             </section>
+            <footer className="pt-4 text-xs text-text-muted text-center lg:fixed lg:bottom-4 lg:left-0 lg:right-0 lg:pt-0 lg:px-6">
+              {DISCLAIMER_TEXT}
+            </footer>
           </div>
         </div>
       </main>

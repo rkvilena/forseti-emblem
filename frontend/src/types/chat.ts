@@ -9,10 +9,19 @@ export interface ChatUsage {
   total_tokens: number | null;
 }
 
+export interface SourceReference {
+  title: string;
+  infobox_title: string | null;
+  game: string | null;
+  pageid: number;
+  source_url: string | null;
+}
+
 export interface ChatResponse {
   response: string;
   model: string;
   usage: ChatUsage | null;
+  sources?: SourceReference[] | null;
 }
 
 export interface ChatRequest {
@@ -42,6 +51,7 @@ export interface ChatMessage {
   usage?: ChatUsage | null;
   model?: string;
   isStreaming?: boolean;
+  sources?: SourceReference[] | null;
 }
 
 export interface ChatSession {

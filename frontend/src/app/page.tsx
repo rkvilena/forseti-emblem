@@ -68,7 +68,7 @@ export default function ChatPage() {
       </div>
 
       {/* Sidebar */}
-      <div className="relative z-10 parchment-panel">
+      <div className="relative z-30 parchment-panel">
         <Sidebar
           onSelectQuestion={handleSelectQuestion}
           onClearChat={clearMessages}

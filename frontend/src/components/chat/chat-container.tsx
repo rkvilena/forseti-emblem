@@ -41,18 +41,13 @@ export function ChatContainer({
   const EXAMPLE_QUESTIONS = [
     {
       icon: SwordIcon,
-      text: "What happens in Chapter 1 of Fire Emblem?",
-      shortText: "Chapter 1",
-    },
-    {
-      icon: BookIcon,
-      text: "Who are the main characters in the prologue?",
-      shortText: "Characters",
+      text: "Which character that can be recruited in Leonster's Gate?",
+      shortText: "Recruitable",
     },
     {
       icon: MapIcon,
-      text: "What are the objectives in Chapter 5?",
-      shortText: "Objectives",
+      text: "How I can approach to complete 'The Child of Light' chapter?",
+      shortText: "Strategy",
     },
   ];
 

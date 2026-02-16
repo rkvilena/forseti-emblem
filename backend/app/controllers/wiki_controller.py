@@ -3,7 +3,11 @@ from typing import Any, Dict
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..chapter_ingest import DuplicateChapterError, ingest_chapter_to_db
+from ..chapter_ingest import (
+    DuplicateChapterError,
+    ingest_chapter_to_db,
+    reingest_chapter_to_db,
+)
 from ..mediawiki_client import MediaWikiClient
 from ..models import Chapter
 from ..parsers import (
@@ -149,6 +153,35 @@ def ingest_chapter_from_wikitext(
             status_code=status.HTTP_409_CONFLICT,
             detail=detail,
         ) from exc
+
+    return {
+        "status": "success",
+        "pageid": pageid,
+        "title": page["title"],
+        "chapter_id": chapter.id,
+        "chunks_count": len(chapter.chunks),
+        "chapter_data": chapter_data,
+    }
+
+
+def reingest_chapter_from_wikitext(
+    db: Session,
+    title: str,
+    generate_embeddings: bool = True,
+) -> Dict[str, Any]:
+    page = client.fetch_page_wikitext(title=title)
+    wikitext = page["wikitext"]
+    pageid = page["pageid"]
+
+    chapter_data = parse_chapter_wikitext(wikitext)
+
+    chapter = reingest_chapter_to_db(
+        db=db,
+        pageid=pageid,
+        title=page["title"],
+        chapter_data=chapter_data,
+        generate_embeddings=generate_embeddings,
+    )
 
     return {
         "status": "success",

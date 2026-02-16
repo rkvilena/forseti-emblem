@@ -133,7 +133,7 @@ export const ChatMessage = memo(function ChatMessage({
                   : [
                       "prose prose-sm max-w-none font-[inherit]",
                       "prose-p:my-2 prose-p:leading-relaxed prose-p:text-text-primary",
-                      "prose-headings:text-text-primary prose-headings:font-brand",
+                      "prose-headings:text-text-primary",
                       "prose-strong:text-brand-teal",
                       "prose-code:text-brand-blue prose-code:bg-surface-muted prose-code:px-1 prose-code:rounded",
                       "prose-pre:bg-surface-base prose-pre:border prose-pre:border-surface-border",
@@ -157,6 +157,52 @@ export const ChatMessage = memo(function ChatMessage({
                 />
               )}
             </div>
+
+            {!isUser && message.sources && message.sources.length > 0 && (
+              <div className="mt-2 text-xs text-text-muted space-y-1">
+                <div className="font-semibold text-text-secondary">Sources</div>
+                <div className="flex flex-wrap gap-2">
+                  {message.sources.map((source, index) => {
+                    const baseTitle =
+                      source.infobox_title || source.title || "Chapter";
+                    const fullTitle = source.title || baseTitle;
+                    let displayTitle = baseTitle;
+
+                    const parenIndex = fullTitle.indexOf(" (");
+                    if (
+                      parenIndex !== -1 &&
+                      fullTitle !== baseTitle &&
+                      parenIndex < fullTitle.length - 2
+                    ) {
+                      const suffix = fullTitle.slice(parenIndex);
+                      displayTitle = `${baseTitle}${suffix}`;
+                    }
+
+                    const gameLabel =
+                      source.game?.replace(/^\[\[(.+)\]\]$/, "$1") ??
+                      source.game ??
+                      null;
+
+                    return (
+                      <a
+                        key={`${source.pageid}-${index}`}
+                        href={source.source_url ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-muted text-text-secondary hover:text-brand-gold hover:bg-surface-border transition-colors text-[11px]"
+                      >
+                        <span>{displayTitle}</span>
+                        {gameLabel && (
+                          <span className="text-text-muted/80">
+                            ({gameLabel})
+                          </span>
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Metadata */}
             {showTimestamp && (
