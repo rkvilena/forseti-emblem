@@ -16,4 +16,6 @@ else
   exit 1
 fi
 
+alembic -c alembic.ini upgrade head
+
 exec python -m fastapi dev app/main.py

@@ -73,23 +73,18 @@ def get_db_context() -> Generator[Session, None, None]:
 
 def init_db() -> None:
     """
-    Initialize database tables and extensions.
+    Initialize database extensions only.
 
-    Creates all tables defined in models and ensures pgvector extension is enabled.
+    Schema changes are managed via Alembic migrations.
     """
-    # Import models to ensure they are registered with Base
-
     pgvector_ok = ensure_pgvector_extension()
     if not pgvector_ok:
         logger.warning(
             "pgvector extension is not available on the connected PostgreSQL instance. "
-            "Skipping table creation because the 'vector' type would fail to create. "
             "Install pgvector on the database server and run again."
         )
-        return
-
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables initialized (pgvector available)")
+    else:
+        logger.info("pgvector extension available")
 
 
 def pgvector_available() -> bool:

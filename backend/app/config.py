@@ -170,13 +170,27 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def database_url_computed(self) -> str:
-        """Construct database URL from components or use provided URL."""
-        if self.database_url:
-            return self.database_url
-        return (
-            f"postgresql+psycopg://{self.database_user}:{self.database_password}"
-            f"@{self.database_host}:{self.database_port}/{self.database_name}"
-        )
+        """Return the normalized database URL.
+
+        DATABASE_URL is now the single source of truth. Individual DATABASE_*
+        fields are ignored for connections. Common PostgreSQL URL formats
+        (e.g. `postgres://` or `postgresql://`) are normalized to use the
+        psycopg v3 driver (`postgresql+psycopg://`) so Supabase-style
+        connection strings work out of the box.
+        """
+        if not self.database_url:
+            raise ValueError(
+                "DATABASE_URL must be set (e.g. postgres://user:pass@host:5432/dbname)"
+            )
+
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = "postgresql+psycopg://" + url[len("postgres://") :]
+        elif (
+            url.startswith("postgresql://") and "+psycopg" not in url.split("://", 1)[0]
+        ):
+            url = "postgresql+psycopg://" + url[len("postgresql://") :]
+        return url
 
     @computed_field
     @property

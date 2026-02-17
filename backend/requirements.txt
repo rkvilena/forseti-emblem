@@ -22,6 +22,7 @@ lxml
 sqlalchemy
 psycopg[binary]
 pgvector
+alembic
 
 # Caching / Rate limiting
 redis

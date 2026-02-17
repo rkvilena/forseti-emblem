@@ -29,11 +29,7 @@ services:
     env_file:
       - ../../backend/.env
     environment:
-      DATABASE_HOST: db
-      DATABASE_PORT: 5432
-      DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres
-      DATABASE_NAME: forsetiemblem
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/forsetiemblem
       ENVIRONMENT: local
       RELOAD: "true"
       DEBUG: "true"
