@@ -13,4 +13,4 @@ COPY backend /code/backend
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "/code/backend/entrypoint.sh"]
+CMD ["bash", "/code/backend/entrypoint.sh"]
