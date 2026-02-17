@@ -50,14 +50,12 @@ const PAGES = [
 ];
 
 interface SidebarProps {
-  onSelectQuestion?: (question: string) => void;
   onClearChat?: () => void;
   hasMessages?: boolean;
   className?: string;
 }
 
 export function Sidebar({
-  onSelectQuestion,
   onClearChat,
   hasMessages = false,
   className,

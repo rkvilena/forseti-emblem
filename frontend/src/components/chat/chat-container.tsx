@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import type { ChatMessage as ChatMessageType } from "@/types";
 import { ChatMessage } from "./chat-message";
 import { EmptyState } from "./empty-state";
-import { SwordIcon, BookIcon, MapIcon } from "./icons";
+import { SwordIcon, MapIcon } from "./icons";
 
 interface ChatContainerProps {
   /** Array of chat messages */
@@ -86,6 +86,11 @@ export function ChatContainer({
                 );
               })}
             </div>
+            {isLoading && (
+              <p className="mt-2 text-[11px] text-text-muted">
+                Preparing context, please wait…
+              </p>
+            )}
           </div>
         </div>
       ) : (

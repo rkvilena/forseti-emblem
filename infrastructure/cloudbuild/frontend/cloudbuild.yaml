@@ -1,0 +1,56 @@
+substitutions:
+  _REGION: asia-northeast1
+  _SERVICE: forsetiemblem-frontend
+  _IMAGE: forsetiemblem-frontend
+  _BACKEND_SERVICE: forsetiemblem-backend
+  _NEXT_PUBLIC_API_URL: https://${_BACKEND_SERVICE}-$PROJECT_ID.${_REGION}.run.app
+  _NEXT_PUBLIC_TURNSTILE_SITE_KEY: ""
+  _NEXT_PUBLIC_CHAT_STORAGE_KEY: ""
+  _NODE_ENV: production
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env:
+      - DOCKER_BUILDKIT=1
+    args:
+      - build
+      - -f
+      - infrastructure/cloudbuild/frontend/Dockerfile
+      - --build-arg
+      - NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL}
+      - --build-arg
+      - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${_NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+      - --build-arg
+      - NEXT_PUBLIC_CHAT_STORAGE_KEY=${_NEXT_PUBLIC_CHAT_STORAGE_KEY}
+      - --build-arg
+      - NODE_ENV=${_NODE_ENV}
+      - -t
+      - gcr.io/$PROJECT_ID/${_IMAGE}:$SHORT_SHA
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - gcr.io/$PROJECT_ID/${_IMAGE}:$SHORT_SHA
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image
+      - gcr.io/$PROJECT_ID/${_IMAGE}:$SHORT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --set-env-vars
+      - NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL},NEXT_PUBLIC_TURNSTILE_SITE_KEY=${_NEXT_PUBLIC_TURNSTILE_SITE_KEY},NEXT_PUBLIC_CHAT_STORAGE_KEY=${_NEXT_PUBLIC_CHAT_STORAGE_KEY},NODE_ENV=${_NODE_ENV}
+
+images:
+  - gcr.io/$PROJECT_ID/${_IMAGE}:$SHORT_SHA

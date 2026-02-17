@@ -1,0 +1,72 @@
+substitutions:
+  _REGION: asia-northeast1
+  _SERVICE: forsetiemblem-backend
+  _IMAGE: forsetiemblem-backend
+  _ENVIRONMENT: ""
+  _DATABASE_URL: ""
+  _OPENAI_API_KEY: ""
+  _OPENAI_EMBEDDING_MODEL: ""
+  _OPENAI_CHAT_MODEL: ""
+  _HOST: ""
+  _PORT: ""
+  _RELOAD: ""
+  _DEBUG: ""
+  _LOG_LEVEL: ""
+  _DOCS_AUTH_ENABLED: ""
+  _DOCS_AUTH_MODE: ""
+  _DOCS_USERNAME: ""
+  _DOCS_PASSWORD: ""
+  _DOCS_SESSION_SECRET: ""
+  _DOCS_SESSION_TTL_SECONDS: ""
+  _TURNSTILE_SECRET_KEY: ""
+  _TURNSTILE_ENABLED: ""
+  _REDIS_URL: ""
+  _RATE_LIMIT_SHORT_WINDOW_SECONDS: ""
+  _RATE_LIMIT_SHORT_IP_REQUESTS: ""
+  _RATE_LIMIT_LONG_WINDOW_SECONDS: ""
+  _RATE_LIMIT_LONG_IP_REQUESTS: ""
+  _SESSION_RATE_LIMIT_LONG_IP_REQUESTS: ""
+  _SESSION_COOKIE_NAME: ""
+  _SESSION_COOKIE_TTL_SECONDS: ""
+  _REQUEST_MAX_CHARS: ""
+  _RAG_TOP_K_MAX: ""
+  _SESSION_COOLDOWN_THRESHOLD: ""
+  _SESSION_COOLDOWN_WINDOW_SECONDS: ""
+  _SESSION_COOLDOWN_DURATION_SECONDS: ""
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env:
+      - DOCKER_BUILDKIT=1
+    args:
+      - build
+      - -f
+      - infrastructure/cloudbuild/backend/Dockerfile
+      - -t
+      - gcr.io/$PROJECT_ID/${_IMAGE}:$SHORT_SHA
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - gcr.io/$PROJECT_ID/${_IMAGE}:$SHORT_SHA
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image
+      - gcr.io/$PROJECT_ID/${_IMAGE}:$SHORT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+
+images:
+  - gcr.io/$PROJECT_ID/${_IMAGE}:$SHORT_SHA

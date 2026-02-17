@@ -7,7 +7,6 @@
 
 import { cn } from "@/lib/utils";
 import { MainLogo } from "@/components/brand/main-logo";
-import { SparkleIcon } from "./icons";
 
 interface EmptyStateProps {
   className?: string;

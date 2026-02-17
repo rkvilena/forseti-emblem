@@ -111,7 +111,7 @@ export function ChatInput({
         turnstileWidgetIdRef.current = null;
       }
     };
-  }, [turnstileSiteKey]);
+  }, [turnstileSiteKey, onTokenChange, onWidgetReady]);
 
   // Auto-resize textarea based on content up to max height
   const adjustTextareaHeight = useCallback(() => {
@@ -158,7 +158,7 @@ export function ChatInput({
         textareaRef.current.style.overflowY = "hidden";
       }
     },
-    [message, isLoading, onSend, turnstileToken],
+    [message, isLoading, onSend, turnstileToken, onTokenChange],
   );
 
   const handleKeyDown = useCallback(

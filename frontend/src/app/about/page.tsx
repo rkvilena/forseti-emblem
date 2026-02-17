@@ -40,12 +40,12 @@ export default function AboutPage() {
                   Fire Emblem wiki
                 </a>{" "}
                 because it provided a clean API to be processed instead of
-                Serenes Forest (there's a possiblity that Serenes Forest
-                actually provided an API but so far I haven't found it). My
+                Serenes Forest (there’s a possiblity that Serenes Forest
+                actually provided an API but so far I haven’t found it). My
                 original plan actually to provide chapters information and
                 character growth rates, but the latter has a complex structure
                 that quite differs for each games, so I think Serenes Forest
-                actually covers it pretty well. Here's the example of&nbsp;
+                actually covers it pretty well. Here’s the example of&nbsp;
                 <a
                   className="text-brand-gold hover:text-brand-blue hover:underline transition-colors"
                   href="https://serenesforest.net/thracia-776/characters/growth-rates/"
@@ -57,9 +57,9 @@ export default function AboutPage() {
               <p className="text-text-secondary">
                 This sites uses retrieval-augmented generation to ground its
                 answers in curated chapters information (so no data actually
-                feeded to the LLM, it's actually LLM understanding information
+                feeded to the LLM, it’s actually LLM understanding information
                 chapters as a separate context). Fire Emblem Wiki has a chapter
-                information box that always exist, and that's the information
+                information box that always exist, and that’s the information
                 the LLM will use to assist you. Aside from the information box,
                 each chapters has no consistency of the information (strategy,
                 item list, etc), so this information box is the only reliable

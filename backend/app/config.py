@@ -178,10 +178,9 @@ class Settings(BaseSettings):
         psycopg v3 driver (`postgresql+psycopg://`) so Supabase-style
         connection strings work out of the box.
         """
+
         if not self.database_url:
-            raise ValueError(
-                "DATABASE_URL must be set (e.g. postgres://user:pass@host:5432/dbname)"
-            )
+            raise ValueError(f"DATABASE_URL empty : {self.database_url}")
 
         url = self.database_url
         if url.startswith("postgres://"):

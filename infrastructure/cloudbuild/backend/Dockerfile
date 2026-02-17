@@ -1,6 +1,3 @@
-# Backend Dockerfile (development)
-# Uses reload + bind mount via docker-compose for fast iteration.
-
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -12,9 +9,8 @@ COPY backend/requirements.txt /code/backend/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir -r /code/backend/requirements.txt
 
-# Code will be bind-mounted in docker-compose; keep a copy for fallback.
 COPY backend /code/backend
 
-EXPOSE 8000
+EXPOSE 8080
 
-CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000} --reload"]
+CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

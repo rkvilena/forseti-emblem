@@ -24,9 +24,14 @@ def get_redis_client() -> Optional["redis.Redis[bytes]"]:
         logger.warning("REDIS_URL not configured; IP rate limiting disabled")
         return None
 
+    url = url.strip()
+    if (url.startswith('"') and url.endswith('"')) or (
+        url.startswith("'") and url.endswith("'")
+    ):
+        url = url[1:-1]
+
     try:
         _redis_client = redis.Redis.from_url(url, decode_responses=False)
-        # Lightweight health check
         _redis_client.ping()
     except Exception as exc:  # pragma: no cover - defensive
         logger.error("Failed to initialize Redis client: %s", exc)

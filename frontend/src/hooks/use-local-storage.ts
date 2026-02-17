@@ -6,7 +6,7 @@
  * Persist state to localStorage with automatic serialization.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 export function useLocalStorage<T>(
   key: string,

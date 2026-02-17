@@ -70,7 +70,6 @@ export default function ChatPage() {
       {/* Sidebar */}
       <div className="relative z-30 parchment-panel">
         <Sidebar
-          onSelectQuestion={handleSelectQuestion}
           onClearChat={clearMessages}
           hasMessages={messages.length > 0}
         />
