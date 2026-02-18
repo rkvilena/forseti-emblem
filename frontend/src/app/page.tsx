@@ -22,6 +22,10 @@ export default function ChatPage() {
   const [turnstileNotice, setTurnstileNotice] = useState<string | null>(null);
   const turnstileWidgetIdRef = useRef<string | null>(null);
 
+  const handleWidgetReady = useCallback((widgetId: string) => {
+    turnstileWidgetIdRef.current = widgetId;
+  }, []);
+
   const handleSendMessage = useCallback(
     (content: string, turnstileToken: string) => {
       setTurnstileNotice(null);
@@ -90,9 +94,7 @@ export default function ChatPage() {
         <ChatInput
           onSend={handleSendMessage}
           onTokenChange={setTurnstileToken}
-          onWidgetReady={(widgetId) => {
-            turnstileWidgetIdRef.current = widgetId;
-          }}
+          onWidgetReady={handleWidgetReady}
           externalError={turnstileNotice}
           isLoading={isLoading}
           placeholder="Ask about Fire Emblem chapters..."
