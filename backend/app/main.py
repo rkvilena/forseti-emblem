@@ -60,12 +60,7 @@ docs_auth_enabled, docs_auth_mode = setup_docs_auth(app, logger=logger)
 # CORS configuration for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Local frontend dev
-        "http://127.0.0.1:3000",  # Alternative localhost
-        "http://localhost:8000",  # Same-origin requests
-        # Production URLs will be added via environment or here
-    ],
+    allow_origins=[settings.cors_allowed_origin],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -106,6 +101,7 @@ def get_config() -> dict:
         "openai_api_key_set": bool(settings.openai_api_key),
         "debug": settings.debug,
         "log_level": settings.log_level,
+        "cors_allowed_origin": settings.cors_allowed_origin,
         "docs_auth_enabled": docs_auth_enabled,
         "docs_auth_mode": docs_auth_mode,
     }

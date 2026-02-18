@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     )
     debug: bool = Field(default=False, description="Enable debug mode")
 
+    # CORS
+    cors_allowed_origin: str = Field(
+        default="http://localhost:3000",
+        description="Allowed CORS origin (single)",
+    )
+
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
 
