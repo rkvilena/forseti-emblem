@@ -50,7 +50,7 @@ export function WebsiteIcon(props: IconProps) {
 export const SITES: SiteLink[] = [
   {
     label: "GitHub",
-    href: "https://github.com/forsetiemblem",
+    href: "https://github.com/rkvilena/forseti-emblem",
     Icon: GithubIcon,
   },
   {
