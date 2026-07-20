@@ -2,7 +2,6 @@
 
 import { Sidebar } from "@/components/chat";
 import { MainLogo } from "@/components/brand/main-logo";
-import { DISCLAIMER_TEXT } from "@/components/prop/sites";
 
 export default function DisclaimerPage() {
   return (
@@ -79,9 +78,6 @@ export default function DisclaimerPage() {
               remove content to remain in good standing with rights holders or
               community guidelines.
             </p>
-            <footer className="mt-8 text-xs text-text-muted text-center lg:fixed lg:bottom-4 lg:left-0 lg:right-0 lg:mt-0 lg:px-6">
-              {DISCLAIMER_TEXT}
-            </footer>
           </div>
         </div>
       </main>

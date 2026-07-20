@@ -5,7 +5,6 @@ import apiClient from "@/lib/api-client";
 import type { ChapterListResponse } from "@/types";
 import { Sidebar } from "@/components/chat";
 import { MainLogo } from "@/components/brand/main-logo";
-import { DISCLAIMER_TEXT } from "@/components/prop/sites";
 
 export default function ChaptersPage() {
   const [data, setData] = useState<ChapterListResponse | null>(null);
@@ -60,7 +59,7 @@ export default function ChaptersPage() {
         <Sidebar hasMessages={false} />
       </div>
 
-      <main className="relative z-10 flex-1 flex flex-col min-w-0">
+      <main className="relative z-10 flex-1 flex flex-col min-w-0 overflow-y-auto">
         <div className="flex-1 flex flex-col min-h-0 px-6 py-8">
           <div className="max-w-5xl w-full mx-auto space-y-6">
             <header className="space-y-1">
@@ -80,7 +79,7 @@ export default function ChaptersPage() {
                 No chapters have been ingested yet.
               </p>
             ) : (
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-6 md:grid-cols-2 pb-6">
                 {groups.map((group) => {
                   const gameName = group.game ?? "Unknown game";
 
@@ -122,9 +121,6 @@ export default function ChaptersPage() {
                 })}
               </div>
             )}
-            <footer className="pt-4 text-xs text-text-muted text-center lg:fixed lg:bottom-4 lg:left-0 lg:right-0 lg:pt-0 lg:px-6">
-              {DISCLAIMER_TEXT}
-            </footer>
           </div>
         </div>
       </main>

@@ -77,8 +77,7 @@ html.dark {
   body {
     @apply bg-surface-base text-text-primary antialiased;
     font-family:
-      "Perpetua", "Perpetua MT", var(--font-brand), "Cormorant Garamond",
-      "Cinzel", Georgia, "Times New Roman", serif;
+      "Cinzel", "Cormorant Garamond", Georgia, "Times New Roman", serif;
   }
 
   /* Custom scrollbar styling */
