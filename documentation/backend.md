@@ -1,111 +1,230 @@
- # Backend Documentation
+# Backend Documentation
 
- ## Overview
+The backend is a FastAPI service that ingests Fire Emblem chapter data from the Fire Emblem wiki, stores it in Postgres with pgvector embeddings, and exposes the chat and ingestion APIs used by the frontend.
 
- The backend is a FastAPI service that ingests Fire Emblem chapter data from the Fire Emblem wiki, parses it into structured records, stores it in Postgres with pgvector embeddings, and exposes chat + ingestion APIs for the frontend and ops workflows.
+This document covers how the backend works: architecture, pipelines, data model, the API contract, security design, and operational behavior.
 
- Core entry points (paths are relative to repo root):
- - `backend/app/main.py` sets up FastAPI, CORS, docs auth, and routes.
- - `backend/app/routes/` defines API endpoints.
- - `backend/app/controllers/` orchestrates ingestion and chat flows.
+> **Looking to install or run the backend?** See [backend/README.md](../backend/README.md) for setup, commands, migrations, and troubleshooting.
 
- ## High-Level Flow
+## Contents
 
- ### Ingestion (Wiki → DB)
- 1. API calls MediaWiki to fetch HTML or wikitext.
- 2. Parsers extract infobox, summary, sections, and tables.
- 3. Ingestion builds Chapter + ChapterChunk records.
- 4. Optional embeddings are created via OpenAI.
- 5. Records are stored in Postgres, and pgvector holds embeddings.
+1. [Architecture](#architecture)
+2. [Project Layout](#project-layout)
+3. [Configuration Model](#configuration-model)
+4. [API Reference](#api-reference)
+5. [Ingestion](#ingestion)
+6. [RAG Internals](#rag-internals)
+7. [Security and Limits](#security-and-limits)
+8. [Operational Notes](#operational-notes)
 
- ### RAG Chat (User → Answer)
- 1. The API validates limits, Turnstile, and rate limits.
- 2. The user query is embedded with OpenAI.
- 3. Similar ChapterChunks are retrieved via pgvector cosine distance.
- 4. Context is built from chunk content + metadata.
- 5. OpenAI chat completion generates the response.
- 6. Response returns with model usage and filtered sources.
+## Architecture
 
- ## Architecture and Key Modules
+```
+MediaWiki API ──► mediawiki_client ──► parsers ──► chapter_ingest ──► Postgres + pgvector
+                                                                        │
+User question ──► /chat/rag ──► openai_service (embed query)            │
+                                     │                                  │
+                                     ▼                                  ▼
+                                 rag_service (cosine similarity retrieval)
+                                     │
+                                     ▼
+                          openai_service (chat completion with context)
+                                     │
+                                     ▼
+                          ChatResponse (answer + usage + sources)
+```
 
- ### Configuration
- - `backend/app/config.py` loads settings from .env files and environment variables.
- - `backend/.env.example` documents required settings, including OpenAI, DB, Redis, and Turnstile.
+### High-level flows
 
- ### Database
- - `backend/app/db.py` configures SQLAlchemy, checks DB connectivity, and enables pgvector.
- - `backend/app/models.py` defines Chapter and ChapterChunk tables.
+**Ingestion (Wiki → DB)**
 
- **Chapter**
- - pageid, title, infobox_title, game, objective, units_allowed, units_gained, boss
- - source_url and raw_infobox (JSON)
+1. The MediaWiki client fetches page HTML or wikitext.
+2. Parsers extract the infobox, summary, sections, and tables.
+3. Ingestion builds `Chapter` and `ChapterChunk` records.
+4. Embeddings are created via OpenAI (optional; requires `OPENAI_API_KEY`).
+5. Records are stored in Postgres; pgvector holds the embeddings.
 
- **ChapterChunk**
- - chapter_id, section_title, kind (summary/infobox/section), chunk_index, text, embedding
- - unique constraint per chapter/kind/chunk_index
+**RAG chat (User → Answer)**
 
- ### Wiki Ingestion
- - `backend/app/mediawiki_client.py` fetches pages via the MediaWiki API.
- - `backend/app/parsers.py` extracts infobox fields, sections, summary, and tables from HTML or wikitext.
- - `backend/app/chapter_ingest.py` builds DB records and embeddings.
- - `backend/app/controllers/wiki_controller.py` ties API inputs to ingestion logic.
+1. The endpoint validates message length, Turnstile, and rate limits.
+2. The query is embedded with OpenAI.
+3. Similar `ChapterChunk` rows are retrieved via pgvector cosine distance.
+4. A bounded context string is built from chunk content + metadata.
+5. An OpenAI chat completion generates the answer.
+6. The response returns with model usage and filtered sources.
 
- ### RAG and OpenAI
- - `backend/app/rag_service.py` retrieves similar chunks and builds a bounded context string.
- - `backend/app/openai_service.py` wraps embeddings and chat completions.
- - `backend/app/controllers/chat_controller.py` runs plain or RAG chat and filters sources.
+### Key modules
 
- ### Security and Limits
- - `backend/app/rate_limit.py` enforces IP limits, per-session quotas, and cooldowns via Redis.
- - `backend/app/security/turnstile.py` verifies Cloudflare Turnstile tokens.
- - `backend/app/docs_auth.py` protects `/docs` and `/redoc` in production or when enabled.
+| Module | Responsibility |
+| ------ | -------------- |
+| `backend/app/main.py` | FastAPI app, CORS, docs auth, `/health` and `/config` |
+| `backend/app/config.py` | Pydantic Settings loaded from `backend/.env` |
+| `backend/app/routes/` | `chat.py` and `wiki.py` endpoint definitions |
+| `backend/app/controllers/` | Orchestrates chat and ingestion flows |
+| `backend/app/schemas/` | Pydantic request/response models |
+| `backend/app/models.py` | `Chapter` and `ChapterChunk` SQLAlchemy tables |
+| `backend/app/db.py` | SQLAlchemy setup, connectivity check, pgvector init |
+| `backend/app/mediawiki_client.py` | MediaWiki API client |
+| `backend/app/parsers.py` | HTML/wikitext parsing (infobox, sections, tables) |
+| `backend/app/chapter_ingest.py` | Builds DB records and embeddings |
+| `backend/app/rag_service.py` | Retrieval and context building |
+| `backend/app/openai_service.py` | Embeddings and chat completions |
+| `backend/app/rate_limit.py` | IP limits, session quotas, cooldowns (Redis) |
+| `backend/app/security/turnstile.py` | Cloudflare Turnstile verification |
+| `backend/app/docs_auth.py` | Protects `/docs` and `/redoc` |
 
- ## API Endpoints
+### Data model
 
- ### System
+**Chapter**
 
- | Method | Path        | Description                                           |
- | ------ | ----------- | ----------------------------------------------------- |
- | GET    | /health     | Status, environment, DB status, pgvector availability |
- | GET    | /config     | Non-sensitive configuration for debugging            |
+- `pageid`, `title`, `infobox_title`, `game`, `objective`, `units_allowed`, `units_gained`, `boss`
+- `source_url` and `raw_infobox` (JSON)
 
- ### Chat
+**ChapterChunk**
 
- | Method | Path       | Body type     | Purpose                                                     |
- | ------ | ---------- | ------------ | ----------------------------------------------------------- |
- | POST   | /chat      | ChatRequest  | Direct OpenAI chat without RAG                              |
- | POST   | /chat/rag  | RagChatRequest | RAG chat with retrieval and contextualized completion      |
+- `chapter_id`, `section_title`, `kind` (summary / infobox / section), `chunk_index`, `text`, `embedding`
+- Unique constraint per `(chapter, kind, chunk_index)`
 
- **Common enforcement**
+## Configuration Model
 
- | Control                 | Source            | Effect                                                  |
- | ----------------------- | ----------------- | ------------------------------------------------------- |
- | request_max_chars       | config            | Rejects messages that are too long (400 error)         |
- | rag_top_k_max           | config            | Clamps top_k for /chat/rag                             |
- | IP + session rate limit | Redis + rate_limit.py | 429 on overuse                                      |
- | Turnstile validation    | security/turnstile.py | Rejects when human verification fails or misconfigured |
+Configuration lives in `backend/app/config.py` (Pydantic Settings) and is loaded from `backend/.env` — that file is always preferred, regardless of the working directory where the server is started.
 
- ### Wiki and Ingestion
+How to create `.env` and which values to set is covered in [backend/README.md](../backend/README.md). This section explains the design of the configuration itself:
 
- | Method | Path                          | Key query params                            | Description                                      |
- | ------ | ----------------------------- | ------------------------------------------- | ------------------------------------------------ |
- | GET    | /wiki/category/{category_name} | limit, include_html, as_markdown, raw      | Fetch category pages and optionally parsed tables |
- | GET    | /wiki/page/{title}           | include_html, raw                           | Parse chapter fields from HTML                   |
- | GET    | /wiki/page/{title}/wikitext  | raw                                         | Parse summary, infobox, sections from wikitext  |
- | POST   | /wiki/page/{title}/ingest    | generate_embeddings                          | Ingest chapter and create embeddings            |
- | POST   | /wiki/page/{title}/reingest  | generate_embeddings                          | Rebuild chapter and chunks for an existing page |
- | GET    | /chapters                    | –                                           | List all ingested chapters grouped by game      |
+- **`DATABASE_URL` is the single source of truth** for the database connection, used by both the app and Alembic. `postgres://` and `postgresql://` URLs are auto-normalized to the psycopg driver. The individual `DATABASE_HOST`/`DATABASE_PORT`/… variables are legacy and ignored.
+- **Environment tiers**: `ENVIRONMENT` (`local` / `development` / `staging` / `production`) controls defaults such as reload and docs-auth enforcement.
+- **Cost controls are server-side**: `REQUEST_MAX_CHARS` caps chat message length and `RAG_TOP_K_MAX` clamps retrieval `top_k`, regardless of what the client sends.
+- **Schema safety net**: Alembic migrations are the source of truth for the schema; an `init_db()` call at app startup additionally attempts to create the `vector` extension and tables as a fallback.
 
- ## Data and Retrieval Details
+## API Reference
 
- - Chapter chunks are created from summary, infobox fields, and section lines.
- - Embeddings are generated in batches; failures store chunks without embeddings.
- - RAG retrieval uses pgvector cosine distance, sorted ascending and limited by top_k.
- - Sources are filtered to only return chapters whose title or game appears in the user message.
+All request bodies are JSON. Chat endpoints enforce, in order: non-empty message, `REQUEST_MAX_CHARS` (400), IP rate limits and session quotas/cooldowns via Redis (429), then Turnstile (400/403/500) when enabled.
 
- ## Operational Notes
+### System
 
- - Postgres must have pgvector enabled; init_db() attempts to install it automatically.
- - Redis is required for rate limiting; missing REDIS_URL returns 500 for chat routes.
- - Turnstile requires TURNSTILE_SECRET_KEY; frontend provides the site key token.
- - Docs auth can be enabled via DOCS_AUTH_ENABLED or auto-enabled in production when username/password are set.
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/health` | Status, environment, DB connection, pgvector availability |
+| GET | `/config` | Non-sensitive configuration for debugging |
+
+### Chat
+
+#### `POST /chat` — plain chat (no RAG)
+
+```json
+{
+  "message": "Tell me about Fire Emblem chapters",
+  "system_prompt": null,
+  "context": null,
+  "temperature": 0.3,
+  "turnstile_token": "..."
+}
+```
+
+`system_prompt`, `context`, and `turnstile_token` are optional (`turnstile_token` required when Turnstile is enabled).
+
+#### `POST /chat/rag` — RAG chat (used by the frontend)
+
+```json
+{
+  "message": "Who is the boss of Chapter 3?",
+  "top_k": 8,
+  "temperature": 0.3,
+  "system_prompt": null,
+  "turnstile_token": "..."
+}
+```
+
+`top_k` (1–30) is clamped down to `RAG_TOP_K_MAX` server-side.
+
+**Response (both endpoints), `ChatResponse`:**
+
+```json
+{
+  "response": "The boss of Chapter 3 is ...",
+  "model": "gpt-4o-mini",
+  "usage": {
+    "prompt_tokens": 950,
+    "completion_tokens": 120,
+    "total_tokens": 1070
+  },
+  "sources": [
+    {
+      "title": "Chapter 3: The Saders",
+      "infobox_title": "Chapter 3",
+      "game": "Fire Emblem: The Blazing Blade",
+      "pageid": 12345,
+      "source_url": "https://fireemblem.fandom.com/wiki/Chapter_3:_The_Saders"
+    }
+  ]
+}
+```
+
+Sources are filtered to only return chapters whose title or game appears in the user message.
+
+**Common error responses:**
+
+| Status | Cause |
+| ------ | ----- |
+| 400 | Empty message, message over `REQUEST_MAX_CHARS`, missing Turnstile token |
+| 403 | Turnstile verification failed |
+| 429 | Rate limit / session quota exceeded or cooldown active |
+| 500 | OpenAI failure, missing `OPENAI_API_KEY`, missing `REDIS_URL`, Turnstile misconfigured |
+
+### Wiki and Ingestion
+
+| Method | Path | Key query params | Description |
+| ------ | ---- | ---------------- | ----------- |
+| GET | `/wiki/category/{category_name}` | `limit` (1–100), `include_html`, `as_markdown`, `raw` | Fetch category pages, optionally with parsed tables |
+| GET | `/wiki/page/{title}` | `include_html`, `raw` | Parse chapter fields from HTML |
+| GET | `/wiki/page/{title}/wikitext` | `raw` | Parse summary, infobox, sections from wikitext |
+| POST | `/wiki/page/{title}/ingest` | `generate_embeddings` (default true) | Fetch, parse, and store a chapter + chunks |
+| POST | `/wiki/page/{title}/reingest` | `generate_embeddings` (default true) | Rebuild chapter and chunks for an existing page |
+| GET | `/chapters` | — | List all ingested chapters grouped by game |
+
+`{title}` must match the wiki page title exactly and be URL-encoded, e.g. `Prologue%20(Blazing%20Blade)`.
+
+## Ingestion
+
+Minimum working example:
+
+```bash
+curl -X POST "http://localhost:8000/wiki/page/Prologue%20(Blazing%20Blade)/ingest?generate_embeddings=true"
+```
+
+Response (`WikiIngestResponse`) includes the `chapter_id` and `chunks_count`.
+
+Practical notes:
+
+- **`generate_embeddings=true` requires `OPENAI_API_KEY`.** With `false`, chunks are still stored but without embeddings — they won't be retrievable by RAG until re-ingested with embeddings.
+- **`/ingest` vs `/reingest`**: use `/ingest` for new pages; use `/reingest` to rebuild an already-stored chapter (e.g. after parser changes).
+- Embeddings are generated in batches; a batch failure stores the chunk without an embedding rather than aborting ingestion.
+- Verify results with `GET /chapters`, or through the frontend at `/chapters`.
+
+## RAG Internals
+
+- Chunks are created from the summary, infobox fields, and individual section lines.
+- Retrieval embeds the user message and orders `ChapterChunk` rows by pgvector cosine distance (ascending), limited by `top_k`.
+- `rag_service` builds a bounded context string from retrieved chunks plus metadata, so prompt size stays controlled.
+- `chat_controller` runs the completion and filters `sources` to chapters whose title or game appears in the user message.
+
+## Security and Limits
+
+| Control | Where | Behavior |
+| ------- | ----- | -------- |
+| Message length | `routes/chat.py` + `REQUEST_MAX_CHARS` | 400 when exceeded |
+| `top_k` clamp | `routes/chat.py` + `RAG_TOP_K_MAX` | Silently clamped |
+| IP rate limit | `rate_limit.py` + Redis | Short window (burst) and long window (daily cap) per IP; 429 when exceeded |
+| Session quota | `rate_limit.py` + Redis | Anonymous session cookie with its own long-window quota |
+| Session cooldown | `rate_limit.py` + Redis | After `SESSION_COOLDOWN_THRESHOLD` rapid requests, a cooldown is applied |
+| Turnstile | `security/turnstile.py` | Token required and verified when `TURNSTILE_ENABLED=true` |
+| Docs auth | `docs_auth.py` | Protects `/docs`, `/redoc`, `/openapi.json` in production or when enabled |
+
+## Operational Notes
+
+- Postgres must have pgvector installed; `init_db()` attempts `CREATE EXTENSION vector` automatically, and the `pgvector/pgvector` Docker image includes it.
+- Redis is required for chat routes: without a reachable `REDIS_URL`, chat endpoints return 500. Other endpoints (e.g. `/chapters`, `/health`) still work.
+- Turnstile requires `TURNSTILE_SECRET_KEY` server-side and a site key on the frontend; set `TURNSTILE_ENABLED=false` to run without it locally.
+- `DOCS_SESSION_SECRET` should be stored in Secret Manager in real deployments.
+- To wipe the database, use the root `resetdb.sh` (destructive), then restart the backend so migrations recreate the schema.
+- Unit tests cover cost controls, rate limiting, and session quotas (`backend/test/unit/`); how to run them is covered in [backend/README.md](../backend/README.md#development-commands).

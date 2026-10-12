@@ -2,51 +2,46 @@
 
 Next.js frontend for the Fire Emblem RAG chat application.
 
-## Features
+> For architecture, chat lifecycle, API integration, and design decisions, see [documentation/frontend.md](../documentation/frontend.md).
 
-- 🔥 **Next.js 15** with Turbopack for fast development
-- 🎨 **Tailwind CSS** with custom Fire Emblem themed design system
-- 💬 **Chat UI** optimized for RAG interactions
-- 📱 **Responsive** mobile-first design
-- 🔄 **Auto-scroll** and typing indicators
-- 🎯 **TypeScript** for type safety
+## Prerequisites
 
-## Development
+- **Node.js 18+** and npm
+- A running backend — see [backend/README.md](../backend/README.md)
 
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-
-### Local Development
+## Local Setup
 
 ```bash
-# Install dependencies
+cd frontend
 npm install
-
-# Start development server (with Turbopack for fast refresh)
+cp .env.example .env.local
 npm run dev
-
-# Or use the start script
-./start.sh
 ```
 
-The app will be available at [http://localhost:3000](http://localhost:3000).
+Open **http://localhost:3000**.
 
 ### Environment Variables
 
-Copy `.env.example` to `.env` and configure:
+| Name | Description | Default |
+| ---- | ----------- | ------- |
+| `NEXT_PUBLIC_API_URL` | Backend base URL | `http://localhost:8000` |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Turnstile site key for the chat widget | value from Cloudflare |
+| `NEXT_PUBLIC_CHAT_STORAGE_KEY` | Currently unused — the chat hook hardcodes `forsetiemblem_chat_history_v1` | — |
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
+The canonical annotated list lives in `.env.example`.
 
-### Docker Development
+## Commands
 
-```bash
-# From repo root
-docker compose -f infrastructure/compose/local.dev.yml up --build
-```
+| Command | Description |
+| ------- | ----------- |
+| `npm run dev` | Start dev server with Turbopack |
+| `npm run build` | Build for production |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm run type-check` | Run TypeScript type checking |
+| `npm run format` | Prettier formatting |
+
+Or use `./start.sh`, which installs dependencies if needed and starts the dev server.
 
 ## Project Structure
 
@@ -60,27 +55,29 @@ frontend/
 │   ├── lib/           # Utilities and API client
 │   ├── styles/        # Global styles and theme
 │   └── types/         # TypeScript type definitions
-├── public/            # Static assets
-└── Dockerfile         # Production Docker image
+└── public/            # Static assets
 ```
 
-## Commands
+## Docker Development
 
-| Command              | Description                     |
-| -------------------- | ------------------------------- |
-| `npm run dev`        | Start dev server with Turbopack |
-| `npm run build`      | Build for production            |
-| `npm run start`      | Start production server         |
-| `npm run lint`       | Run ESLint                      |
-| `npm run type-check` | Run TypeScript type checking    |
+```bash
+# From repo root (requires backend/.env to exist)
+docker compose -f infrastructure/compose/local.dev.yml up --build
+```
 
-## Theme
+> Note: the Compose `api` service references `backend/Dockerfile.dev`, which doesn't currently exist in this repository, so that build will fail — use the local setup above (and start the backend directly) for now.
 
-The design system uses a Fire Emblem-inspired color palette:
+## Troubleshooting
 
-- **Primary**: Royal blue tones (Forseti's wind magic)
-- **Accent**: Sacred gold (nobility and crests)
-- **Crimson**: Action highlights
-- **Surface**: Dark parchment-like backgrounds
+| Symptom | Cause and fix |
+| ------- | ------------- |
+| Chat fails to send / network errors | Backend not running or `NEXT_PUBLIC_API_URL` doesn't match it |
+| Turnstile blocks sending | Backend has `TURNSTILE_ENABLED=true` but the site key is missing or wrong in `.env.local` |
+| Chat history doesn't persist | Storage key is hardcoded (`forsetiemblem_chat_history_v1`); clearing the sidebar chat removes stored history |
+| CORS errors | Backend `CORS_ALLOWED_ORIGIN` must match the frontend origin |
 
-All colors are centralized in `tailwind.config.ts` and `src/styles/theme.ts`.
+## Related Documentation
+
+- [Frontend architecture](../documentation/frontend.md) — how the frontend works
+- [Backend guide](../backend/README.md) — backend setup
+- [Root README](../README.md) — whole-project overview and quick start
