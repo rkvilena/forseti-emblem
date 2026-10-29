@@ -1,5 +1,6 @@
 randomfile/
 backend/.venv
+memory-bank/
 .vscode/settings.json
 .vscode/project_notes.txt
 **/__pycache__/

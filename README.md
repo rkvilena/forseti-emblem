@@ -10,16 +10,19 @@ Forsetiemblem is a Fire Emblem RAG application. It ingests chapter data from the
 
 ## How It Works
 
-```
-Fire Emblem Wiki (MediaWiki API)
-        |  ingestion: fetch -> parse -> chunk -> embed
-        v
-Postgres + pgvector  <---- retrieval by cosine similarity -----+
-                                                               |
-User question --> FastAPI /chat/rag --> OpenAI chat completion-+
-                          |
-                          v
-                  Next.js chat UI (client-side typing effect)
+```mermaid
+flowchart LR
+    subgraph Ingestion
+        Wiki["Fire Emblem Wiki<br/>MediaWiki API"] -->|fetch → parse → chunk → embed| DB[("Postgres<br/>+ pgvector")]
+    end
+
+    subgraph Chat
+        Q["User question"] --> API["FastAPI<br/>/chat/rag"]
+        API -->|embed query| Retr["Retrieve top-k<br/>cosine similarity"]
+        DB -.->|similar chunks| Retr
+        Retr -->|context| LLM["OpenAI<br/>chat completion"]
+        LLM --> UI["Next.js chat UI<br/>client-side typing effect"]
+    end
 ```
 
 1. **Ingestion** — the backend fetches a chapter page from the wiki, parses it into structured records (infobox, summary, sections), splits them into chunks, optionally embeds them with OpenAI, and stores everything in Postgres + pgvector.

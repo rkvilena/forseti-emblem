@@ -357,7 +357,6 @@ def _parse_wikitext_summary(wikitext: str) -> str | None:
     after = after.lstrip()
 
     while after.lstrip().startswith("{{"):
-        local = after.lstrip()
         idx = after.find("{{")
         if idx == -1:
             break

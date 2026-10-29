@@ -1,0 +1,29 @@
+# Files uploaded to Cloud Build and used as the docker build context.
+# Without this, node_modules (hundreds of MB) and .venv are uploaded on every build.
+#
+# Note: .dockerignore already excludes node_modules/.venv from the docker context,
+# so excluding them here does not change the resulting images.
+
+.gcloudignore
+.gcloudignore.*
+.git
+.gitignore
+.vscode
+
+# Local dependencies and caches
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/.next
+
+# Local secrets
+**/.env
+
+# Not needed to build either image
+memory-bank/
+documentation/
+infrastructure/compose/
+infrastructure/terraform/

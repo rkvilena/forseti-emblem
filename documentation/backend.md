@@ -19,19 +19,20 @@ This document covers how the backend works: architecture, pipelines, data model,
 
 ## Architecture
 
-```
-MediaWiki API ──► mediawiki_client ──► parsers ──► chapter_ingest ──► Postgres + pgvector
-                                                                        │
-User question ──► /chat/rag ──► openai_service (embed query)            │
-                                     │                                  │
-                                     ▼                                  ▼
-                                 rag_service (cosine similarity retrieval)
-                                     │
-                                     ▼
-                          openai_service (chat completion with context)
-                                     │
-                                     ▼
-                          ChatResponse (answer + usage + sources)
+```mermaid
+flowchart TB
+    subgraph Ingestion["Ingestion (Wiki → DB)"]
+        MW["MediaWiki API"] --> MC["mediawiki_client"] --> P["parsers"] --> CIG["chapter_ingest"] --> DB[("Postgres<br/>+ pgvector")]
+    end
+
+    subgraph Chat["Chat (question → answer)"]
+        Q["User question"] --> R["/chat/rag"]
+        R --> E["openai_service<br/>embed query"]
+        E --> RS["rag_service<br/>cosine similarity retrieval"]
+        RS --> CC["openai_service<br/>chat completion with context"]
+        CC --> CR["ChatResponse<br/>answer + usage + sources"]
+        DB -.->|similar chunks| RS
+    end
 ```
 
 ### High-level flows

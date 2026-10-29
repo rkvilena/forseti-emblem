@@ -1,0 +1,247 @@
+# Single deployment pipeline, shared by both Cloud Run services.
+#
+# The Cloud Build trigger selects the service with `_TARGET`:
+#   _TARGET=backend   -> validates, tests, builds, migrates, deploys the API
+#   _TARGET=frontend  -> validates, builds, deploys the web app
+#
+# Pipeline: validate -> test -> build -> push -> migrate (backend) -> deploy
+#
+# Images are immutable, tagged with the commit SHA, and stored in Artifact Registry.
+#
+# Secrets: runtime secrets are read by Cloud Run from Secret Manager via
+# `--set-secrets`; Cloud Build only ever receives the migration URL, through
+# `availableSecrets`. No secret value is stored in this file or in a trigger
+# substitution. Secret IDs are prefixed `<app>-<env>-` because project rkvilena
+# hosts other applications.
+
+substitutions:
+  _TARGET: backend
+  _REGION: asia-northeast1
+  _AR_REPO: forsetiemblem
+  _BACKEND_SERVICE: forsetiemblem-backend
+  _FRONTEND_SERVICE: forsetiemblem-frontend
+
+  # Frontend build-time values (public, inlined by Next.js at build time).
+  _NEXT_PUBLIC_API_URL: https://fstemblm-be.rkvilena.com
+  _NEXT_PUBLIC_TURNSTILE_SITE_KEY: ""
+  _NEXT_PUBLIC_CHAT_STORAGE_KEY: forsetiemblem-prod-chat-messages
+
+  # Secret Manager IDs for backend runtime secrets. Names only -- never values.
+  # The container still sees the plain variable names (DATABASE_URL, ...).
+  _SECRET_DATABASE_URL: forsetiemblem-prod-database-url
+  _SECRET_OPENAI_API_KEY: forsetiemblem-prod-openai-api-key
+  _SECRET_REDIS_URL: forsetiemblem-prod-redis-url
+  _SECRET_TURNSTILE_SECRET_KEY: forsetiemblem-prod-turnstile-secret-key
+  _SECRET_DOCS_PASSWORD: forsetiemblem-prod-docs-password
+  _SECRET_DOCS_SESSION_SECRET: forsetiemblem-prod-docs-session-secret
+
+  # Runtime identity for Cloud Run. Empty keeps whatever the service uses today;
+  # set it once `forsetiemblem-runtime@rkvilena.iam.gserviceaccount.com` exists.
+  _RUNTIME_SERVICE_ACCOUNT: ""
+
+  # Set to "false" to skip the Alembic step for a single build.
+  _RUN_MIGRATIONS: "true"
+
+  # Public backend configuration (not secrets).
+  _ENVIRONMENT: production
+  _CORS_ALLOWED_ORIGIN: https://forsetiemblem.rkvilena.com
+  _OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+  _OPENAI_CHAT_MODEL: gpt-4.1-mini
+  _TURNSTILE_ENABLED: "true"
+  _DOCS_AUTH_ENABLED: "true"
+  _DOCS_AUTH_MODE: session
+  _DOCS_USERNAME: ""
+  _DOCS_SESSION_TTL_SECONDS: "180"
+  _RATE_LIMIT_SHORT_WINDOW_SECONDS: "30"
+  _RATE_LIMIT_SHORT_IP_REQUESTS: "3"
+  _RATE_LIMIT_LONG_WINDOW_SECONDS: "86400"
+  _RATE_LIMIT_LONG_IP_REQUESTS: "15"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 2400s
+
+steps:
+  # ---------------------------------------------------------------- validate ---
+  - id: validate-backend
+    name: python:3.11-slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ "${_TARGET}" != "backend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
+        pip install --quiet --disable-pip-version-check ruff mypy
+        cd backend
+        echo ":: ruff (blocking)"
+        ruff check .
+        # TODO: make blocking once the pre-existing type errors are fixed.
+        # Currently 18 errors in 8 files (Column[str] vs str, Starlette middleware
+        # signatures), so this stage is advisory to keep main deployable.
+        echo ":: mypy (advisory)"
+        mypy app || echo "WARNING: mypy reported errors (advisory, not failing the build)"
+
+  - id: test-backend
+    name: python:3.11-slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ "${_TARGET}" != "backend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
+        cd backend
+        pip install --quiet --disable-pip-version-check -r requirements.txt
+        pytest -q
+
+  - id: validate-frontend
+    name: node:20-alpine
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        set -e
+        if [ "${_TARGET}" != "frontend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
+        cd frontend
+        npm ci --no-audit --no-fund
+        npm run type-check
+        npm run lint
+
+  # ------------------------------------------------------- build and publish ---
+  - id: build-and-push
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ "${_TARGET}" != "backend" ] && [ "${_TARGET}" != "frontend" ]; then
+          echo "unknown _TARGET '${_TARGET}'; nothing to build"
+          exit 0
+        fi
+        image="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_TARGET}:${SHORT_SHA}"
+
+        if [ "${_TARGET}" = "backend" ]; then
+          docker build \
+            -f infrastructure/cloudbuild/backend/Dockerfile \
+            -t "$image" \
+            .
+        else
+          docker build \
+            -f infrastructure/cloudbuild/frontend/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_URL="${_NEXT_PUBLIC_API_URL}" \
+            --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY="${_NEXT_PUBLIC_TURNSTILE_SITE_KEY}" \
+            --build-arg NEXT_PUBLIC_CHAT_STORAGE_KEY="${_NEXT_PUBLIC_CHAT_STORAGE_KEY}" \
+            -t "$image" \
+            .
+        fi
+
+        docker push "$image"
+        echo "$image" > /workspace/image.txt
+    waitFor:
+      - validate-backend
+      - test-backend
+      - validate-frontend
+
+  # --------------------------------------------------------------- migrate ---
+  # Runs Alembic against the direct (non-pooled) Supabase connection.
+  # The URL arrives through availableSecrets, so it is never echoed and never
+  # becomes a substitution. The image has no ENTRYPOINT, so the explicit command
+  # replaces the server start-up and the app is not launched here.
+  - id: migrate
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    secretEnv:
+      - MIGRATION_DATABASE_URL
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ "${_TARGET}" != "backend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
+        if [ "${_RUN_MIGRATIONS}" != "true" ]; then
+          echo "migrations disabled (_RUN_MIGRATIONS=${_RUN_MIGRATIONS})"
+          exit 0
+        fi
+        docker run --rm \
+          -e DATABASE_URL="$${MIGRATION_DATABASE_URL}" \
+          "$(cat /workspace/image.txt)" \
+          bash -c "cd /code/backend && alembic -c alembic.ini upgrade head"
+    waitFor:
+      - build-and-push
+
+  # ---------------------------------------------------------------- deploy ---
+  - id: deploy-backend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ "${_TARGET}" != "backend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
+
+        # Public config only. Anything sensitive is mounted from Secret Manager below.
+        # The leading ^|^ selects "|" as the separator so URLs stay unambiguous.
+        env_vars="^|^ENVIRONMENT=${_ENVIRONMENT}"
+        env_vars="${env_vars}|CORS_ALLOWED_ORIGIN=${_CORS_ALLOWED_ORIGIN}"
+        env_vars="${env_vars}|OPENAI_EMBEDDING_MODEL=${_OPENAI_EMBEDDING_MODEL}"
+        env_vars="${env_vars}|OPENAI_CHAT_MODEL=${_OPENAI_CHAT_MODEL}"
+        env_vars="${env_vars}|TURNSTILE_ENABLED=${_TURNSTILE_ENABLED}"
+        env_vars="${env_vars}|DOCS_AUTH_ENABLED=${_DOCS_AUTH_ENABLED}"
+        env_vars="${env_vars}|DOCS_AUTH_MODE=${_DOCS_AUTH_MODE}"
+        env_vars="${env_vars}|DOCS_USERNAME=${_DOCS_USERNAME}"
+        env_vars="${env_vars}|DOCS_SESSION_TTL_SECONDS=${_DOCS_SESSION_TTL_SECONDS}"
+        env_vars="${env_vars}|RATE_LIMIT_SHORT_WINDOW_SECONDS=${_RATE_LIMIT_SHORT_WINDOW_SECONDS}"
+        env_vars="${env_vars}|RATE_LIMIT_SHORT_IP_REQUESTS=${_RATE_LIMIT_SHORT_IP_REQUESTS}"
+        env_vars="${env_vars}|RATE_LIMIT_LONG_WINDOW_SECONDS=${_RATE_LIMIT_LONG_WINDOW_SECONDS}"
+        env_vars="${env_vars}|RATE_LIMIT_LONG_IP_REQUESTS=${_RATE_LIMIT_LONG_IP_REQUESTS}"
+
+        secrets="^|^DATABASE_URL=${_SECRET_DATABASE_URL}:latest"
+        secrets="${secrets}|OPENAI_API_KEY=${_SECRET_OPENAI_API_KEY}:latest"
+        secrets="${secrets}|REDIS_URL=${_SECRET_REDIS_URL}:latest"
+        secrets="${secrets}|TURNSTILE_SECRET_KEY=${_SECRET_TURNSTILE_SECRET_KEY}:latest"
+        secrets="${secrets}|DOCS_PASSWORD=${_SECRET_DOCS_PASSWORD}:latest"
+        secrets="${secrets}|DOCS_SESSION_SECRET=${_SECRET_DOCS_SESSION_SECRET}:latest"
+
+        extra=()
+        if [ -n "${_RUNTIME_SERVICE_ACCOUNT}" ]; then
+          extra+=(--service-account "${_RUNTIME_SERVICE_ACCOUNT}")
+        fi
+
+        gcloud run deploy "${_BACKEND_SERVICE}" \
+          --image "$(cat /workspace/image.txt)" \
+          --region "${_REGION}" \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars "${env_vars}" \
+          --set-secrets "${secrets}" \
+          ${extra[@]+"${extra[@]}"}
+    waitFor:
+      - migrate
+
+  - id: deploy-frontend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ "${_TARGET}" != "frontend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
+        # NEXT_PUBLIC_* values are inlined at build time, so no runtime env is needed.
+        gcloud run deploy "${_FRONTEND_SERVICE}" \
+          --image "$(cat /workspace/image.txt)" \
+          --region "${_REGION}" \
+          --platform managed \
+          --allow-unauthenticated
+    waitFor:
+      - build-and-push
+
+# Note: images are pushed explicitly in `build-and-push`, so no `images:` block is
+# needed here. Keeping it would double-push and break the no-op validation build
+# (`_TARGET=none`).
+
+# Only the migration URL is exposed to the build, and only to steps that declare
+# `secretEnv`. Cloud Run reads every other secret itself at runtime.
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/forsetiemblem-prod-migration-database-url/versions/latest
+      env: MIGRATION_DATABASE_URL

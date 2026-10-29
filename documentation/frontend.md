@@ -51,6 +51,30 @@ Pages live in `frontend/src/app` using the App Router.
 
 > **Note on "streaming":** the backend returns the **complete** response in a single HTTP response. The frontend then progressively reveals that already-complete text on a timer to create a typing effect. There is no server-sent streaming.
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant CI as ChatInput
+    participant TS as Turnstile widget
+    participant H as useChat
+    participant A as apiClient
+    participant B as "FastAPI POST /chat/rag"
+
+    U->>CI: compose and send message
+    CI->>TS: obtain token (when enabled)
+    TS-->>CI: token
+    CI->>H: sendMessage(message, token)
+    H->>H: append user message + empty assistant placeholder
+    H->>A: chatRag({ message, top_k, temperature, token })
+    A->>B: HTTP POST (single request)
+    B-->>A: ChatResponse (complete answer, usage, sources)
+    A-->>H: parsed response
+    H->>H: reveal answer progressively (simulated typing)
+    H->>H: persist history to localStorage
+    H-->>U: markdown answer + source references
+```
+
 Key modules:
 
 - `frontend/src/hooks/use-chat.ts` — message state, persistence, retries, and the simulated streaming
