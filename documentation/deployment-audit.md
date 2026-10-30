@@ -28,6 +28,16 @@ reproduced here** — only names and locations, so they can be rotated.
 > Still outstanding: `S1-1` and `S1-3` (secrets and IAM — the highest priority), `S2-6`,
 > `S3-1`, `S3-2`, `S3-3`. Sections below are retained as the record of the
 > **pre-refactor** state.
+>
+> **Update — pipeline split.** The single shared pipeline was replaced by two configs,
+> `infrastructure/cloudbuild/backend/cloudbuild.yaml` and
+> `infrastructure/cloudbuild/frontend/cloudbuild.yaml`, each with its own trigger and
+> `includedFiles`; `_TARGET` is gone. Reason: Cloud Build resolves `availableSecrets` once
+> per build, so the frontend build failed in the (skipped) `migrate` step whenever
+> `forsetiemblem-prod-migration-database-url` was unavailable. The frontend config now has
+> no `availableSecrets` at all. The backend test step receives `DATABASE_URL` because
+> `app.db` builds the SQLAlchemy engine at import time. The plaintext secret substitutions
+> that remained on the backend trigger were deleted; those credentials still need rotation.
 
 ## 1. Current architecture
 

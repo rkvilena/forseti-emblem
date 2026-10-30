@@ -1,30 +1,24 @@
-# Single deployment pipeline, shared by both Cloud Run services.
+# Backend pipeline (Cloud Run service `forsetiemblem-backend`).
 #
-# The Cloud Build trigger selects the service with `_TARGET`:
-#   _TARGET=backend   -> validates, tests, builds, migrates, deploys the API
-#   _TARGET=frontend  -> validates, builds, deploys the web app
+# Trigger: `forsetiemblem-backend-trigger`
+#   config file:    infrastructure/cloudbuild/backend/cloudbuild.yaml
+#   included files: backend/**, infrastructure/cloudbuild/backend/**
 #
-# Pipeline: validate -> test -> build -> push -> migrate (backend) -> deploy
+# Stages: validate -> test -> build/push -> migrate -> deploy.
 #
-# Images are immutable, tagged with the commit SHA, and stored in Artifact Registry.
+# This file is independent of the frontend pipeline. A frontend change never
+# runs a backend step and never resolves a backend secret.
 #
-# Secrets: runtime secrets are read by Cloud Run from Secret Manager via
-# `--set-secrets`; Cloud Build only ever receives the migration URL, through
-# `availableSecrets`. No secret value is stored in this file or in a trigger
-# substitution. Secret IDs are prefixed `<app>-<env>-` because project rkvilena
-# hosts other applications.
+# Secrets: Cloud Run reads its runtime secrets from Secret Manager via
+# `--set-secrets`; Cloud Build reads only the two database URLs, and only in the
+# steps that declare `secretEnv`. No secret value is stored in this file, in a
+# trigger substitution, or in build output. Secret IDs are prefixed
+# `<app>-<env>-` because project rkvilena hosts other applications.
 
 substitutions:
-  _TARGET: backend
   _REGION: asia-northeast1
   _AR_REPO: forsetiemblem
   _BACKEND_SERVICE: forsetiemblem-backend
-  _FRONTEND_SERVICE: forsetiemblem-frontend
-
-  # Frontend build-time values (public, inlined by Next.js at build time).
-  _NEXT_PUBLIC_API_URL: https://fstemblm-be.rkvilena.com
-  _NEXT_PUBLIC_TURNSTILE_SITE_KEY: ""
-  _NEXT_PUBLIC_CHAT_STORAGE_KEY: forsetiemblem-prod-chat-messages
 
   # Secret Manager IDs for backend runtime secrets. Names only -- never values.
   # The container still sees the plain variable names (DATABASE_URL, ...).
@@ -71,7 +65,6 @@ steps:
       - -c
       - |
         set -euo pipefail
-        if [ "${_TARGET}" != "backend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
         pip install --quiet --disable-pip-version-check "ruff==0.6.8" "mypy==1.19.1"
         cd backend
         echo ":: ruff (blocking)"
@@ -82,30 +75,24 @@ steps:
         echo ":: mypy (advisory)"
         mypy app || echo "WARNING: mypy reported errors (advisory, not failing the build)"
 
+  # -------------------------------------------------------------------- test ---
+  # The unit tests import `app.main` at collection time, and `app.db` builds the
+  # SQLAlchemy engine during import, so DATABASE_URL must be present and
+  # parseable. The engine is lazy and no test issues a query (the database
+  # dependency is satisfied by a session that is never used), therefore no
+  # connection is opened against this URL.
   - id: test-backend
     name: python:3.11-slim
     entrypoint: bash
+    secretEnv:
+      - DATABASE_URL
     args:
       - -c
       - |
         set -euo pipefail
-        if [ "${_TARGET}" != "backend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
         cd backend
         pip install --quiet --disable-pip-version-check -r requirements.txt
         pytest -q
-
-  - id: validate-frontend
-    name: node:20-alpine
-    entrypoint: sh
-    args:
-      - -c
-      - |
-        set -e
-        if [ "${_TARGET}" != "frontend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
-        cd frontend
-        npm ci --no-audit --no-fund
-        npm run type-check
-        npm run lint
 
   # ------------------------------------------------------- build and publish ---
   - id: build-and-push
@@ -115,33 +102,16 @@ steps:
       - -c
       - |
         set -euo pipefail
-        if [ "${_TARGET}" != "backend" ] && [ "${_TARGET}" != "frontend" ]; then
-          echo "unknown _TARGET '${_TARGET}'; nothing to build"
-          exit 0
-        fi
-        image="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_TARGET}:${SHORT_SHA}"
-
-        if [ "${_TARGET}" = "backend" ]; then
-          docker build \
-            -f infrastructure/cloudbuild/backend/Dockerfile \
-            -t "$image" \
-            .
-        else
-          docker build \
-            -f infrastructure/cloudbuild/frontend/Dockerfile \
-            --build-arg NEXT_PUBLIC_API_URL="${_NEXT_PUBLIC_API_URL}" \
-            --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY="${_NEXT_PUBLIC_TURNSTILE_SITE_KEY}" \
-            --build-arg NEXT_PUBLIC_CHAT_STORAGE_KEY="${_NEXT_PUBLIC_CHAT_STORAGE_KEY}" \
-            -t "$image" \
-            .
-        fi
-
+        image="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/backend:${SHORT_SHA}"
+        docker build \
+          -f infrastructure/cloudbuild/backend/Dockerfile \
+          -t "$image" \
+          .
         docker push "$image"
         echo "$image" > /workspace/image.txt
     waitFor:
       - validate-backend
       - test-backend
-      - validate-frontend
 
   # --------------------------------------------------------------- migrate ---
   # Runs Alembic against the direct (non-pooled) Supabase connection.
@@ -157,7 +127,6 @@ steps:
       - -c
       - |
         set -euo pipefail
-        if [ "${_TARGET}" != "backend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
         if [ "${_RUN_MIGRATIONS}" != "true" ]; then
           echo "migrations disabled (_RUN_MIGRATIONS=${_RUN_MIGRATIONS})"
           exit 0
@@ -177,7 +146,6 @@ steps:
       - -c
       - |
         set -euo pipefail
-        if [ "${_TARGET}" != "backend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
 
         # Public config only. Anything sensitive is mounted from Secret Manager below.
         # The leading ^|^ selects "|" as the separator so URLs stay unambiguous.
@@ -218,30 +186,13 @@ steps:
     waitFor:
       - migrate
 
-  - id: deploy-frontend
-    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        set -euo pipefail
-        if [ "${_TARGET}" != "frontend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
-        # NEXT_PUBLIC_* values are inlined at build time, so no runtime env is needed.
-        gcloud run deploy "${_FRONTEND_SERVICE}" \
-          --image "$(cat /workspace/image.txt)" \
-          --region "${_REGION}" \
-          --platform managed \
-          --allow-unauthenticated
-    waitFor:
-      - build-and-push
-
-# Note: images are pushed explicitly in `build-and-push`, so no `images:` block is
-# needed here. Keeping it would double-push and break the no-op validation build
-# (`_TARGET=none`).
-
-# Only the migration URL is exposed to the build, and only to steps that declare
-# `secretEnv`. Cloud Run reads every other secret itself at runtime.
+# Only the two database URLs are exposed to the build, and only to the steps that
+# declare `secretEnv`: `DATABASE_URL` for the unit-test stage (import-time engine
+# creation) and `MIGRATION_DATABASE_URL` for Alembic. Cloud Run reads every other
+# secret itself at runtime.
 availableSecrets:
   secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/forsetiemblem-prod-database-url/versions/latest
+      env: DATABASE_URL
     - versionName: projects/$PROJECT_ID/secrets/forsetiemblem-prod-migration-database-url/versions/latest
       env: MIGRATION_DATABASE_URL
