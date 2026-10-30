@@ -72,7 +72,7 @@ steps:
       - |
         set -euo pipefail
         if [ "${_TARGET}" != "backend" ]; then echo "skipped (target=${_TARGET})"; exit 0; fi
-        pip install --quiet --disable-pip-version-check ruff mypy
+        pip install --quiet --disable-pip-version-check "ruff==0.6.8" "mypy==1.19.1"
         cd backend
         echo ":: ruff (blocking)"
         ruff check .

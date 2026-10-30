@@ -35,6 +35,6 @@ python-dotenv
 openai
 
 # Dev tooling (formatter/typecheck/tests)
-ruff
-mypy
+ruff==0.6.8
+mypy==1.19.1
 pytest
