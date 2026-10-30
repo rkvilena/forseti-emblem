@@ -126,7 +126,7 @@ bash ../resetdb.sh
 
 ## Production Container
 
-`backend/entrypoint.sh` runs Alembic migrations, then starts uvicorn on `$PORT` (default 8080). For deployment architecture (Cloud Build, Cloud Run, Artifact Registry, secrets, CORS), see [`infrastructure/README.md`](../infrastructure/README.md).
+`backend/entrypoint.sh` runs Alembic migrations, then starts uvicorn on `$PORT` (default 8080). Deployment notes are not documented in `infrastructure/README.md` yet; current findings live in [`documentation/deployment-audit.md`](../documentation/deployment-audit.md).
 
 ## Troubleshooting
 
