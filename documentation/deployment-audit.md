@@ -6,6 +6,12 @@ Read-only inventory of the live Google Cloud deployment as of 2026-10-30, taken 
 No infrastructure was modified to produce this document. **No secret values are
 reproduced here** — only names and locations, so they can be rotated.
 
+> **Writing rule for updates (for humans and agents):** keep each update block to at most
+> ~8 lines. One paragraph per entry: what failed/changed in one sentence, root cause in one
+> sentence, fix (file + function) in one sentence. No reproduction recipes longer than one
+> line, no restated diffs, no alternatives considered. Details live in code comments,
+> `memory-bank/`, or the commit message — not here.
+
 > **Update — Phase 2 (cleanup) completed.** Concretely:
 >
 > - The broken root `cloudbuild.yaml` and both per-service configs were **deleted**
@@ -40,36 +46,28 @@ reproduced here** — only names and locations, so they can be rotated.
 > that remained on the backend trigger were deleted; those credentials still need rotation.
 >
 > **Update — backend typing gate (2026-10-30).** `mypy app` is now **blocking** in
-> `validate-backend`, and that step installs `backend/requirements.txt` so third-party
-> types are actually available (`ignore_missing_imports` would otherwise resolve most
-> libraries to `Any` and make the check vacuous). Getting to zero errors:
-> `Chapter`/`ChapterChunk` moved to SQLAlchemy 2.0 `DeclarativeBase` + `Mapped[...]`
-> (no more `Column[str]` leaking into call sites), `prop-decorator` is disabled in the
-> mypy config for the `@computed_field` + `@property` pattern, OpenAI
-> chat messages are typed as `ChatCompletionMessageParam`, `redis.Redis` drops the
-> generic parameter removed in redis-py 8, the docs-auth middlewares match Starlette's
-> `_MiddlewareFactory` signature (`ASGIApp` + positional-or-keyword options), and
-> `types-requests` is installed.
+> `validate-backend`, which also installs `backend/requirements.txt` so third-party types are
+> available (otherwise `ignore_missing_imports` turns the check into `Any`-vacuous). Zero-error
+> fixes: SQLAlchemy 2.0 `DeclarativeBase` + `Mapped[...]` for `Chapter`/`ChapterChunk`,
+> `prop-decorator` disabled in mypy config (documented pydantic limitation), typed OpenAI
+> `ChatCompletionMessageParam`, `redis.Redis` without the generic removed in redis-py 8,
+> Starlette `_MiddlewareFactory`-compatible docs-auth middlewares, `types-requests` installed.
 >
-> **Update — first blocking run (2026-10-30).** The gate failed on the clean checkout while
-> local runs passed, and the cause was worth documenting: `.gitignore` still contained
-> `backend/app/__init__.py`, so the *committed* tree had no package markers and `app/` shipped
-> as a namespace package. Runtime never noticed, but mypy named modules `routes.chat` /
-> `controllers.wiki_controller` instead of `app.routes.chat`, which turned all 16 relative
-> imports into `[misc] Relative import climbs too many namespaces`. Fix: drop that
-> `.gitignore` entry and track `app/__init__.py`, `app/routes/__init__.py`,
-> `app/controllers/__init__.py`. The second error, `db.py [var-annotated]` on
-> `conn.execute(text(...)).scalar_one()`, comes from unpinned SQLAlchemy (only `ruff`/`mypy`
-> are pinned), so that result is now annotated explicitly as `object`. Reproducing CI locally:
-> copy `backend/app` to a temp dir, delete the `__init__.py` markers, clear `.mypy_cache`,
-> run `mypy app`.
+> **Update — first blocking run (2026-10-30).** CI failed where local passed:
+> `.gitignore` still ignored `backend/app/__init__.py`, so the committed tree had no package
+> markers → mypy resolved `routes.*`/`controllers.*` as namespace modules and all 16 relative
+> imports failed with `[misc]`. Fix: track the three `__init__.py` markers. Second error,
+> `db.py [var-annotated]` on `conn.execute(text(...)).scalar_one()`, came from the (then
+> unpinned) SQLAlchemy; result is now annotated `result: object`. Local CI-reproduction recipe:
+> copy `backend/app` to a temp dir, remove the markers, clear `.mypy_cache`, run `mypy app`.
 >
-> **Update — dependencies pinned (2026-10-30).** `backend/requirements.txt` now pins all 20 direct
-> dependencies with `==` to the versions validated in the local venv, so the gate no longer
-> resolves fresh libraries on every build. This also fixed a stale `ruff==0.6.8` (local ran
-> 0.14.10), meaning local and CI formatting finally use the same engine. Transitive dependencies
-> are still resolved at install time; move to `pip freeze`-style locking if the build must be
-> byte-reproducible.
+> **Update — deps pinned + Alembic driver fix (2026-10-30).** All 20 direct deps in
+> `backend/requirements.txt` now pinned with `==` to the local venv (also fixed stale
+> `ruff==0.6.8` → `0.14.10`; transitives still float). Then the `migrate` step failed with
+> `ModuleNotFoundError: No module named 'psycopg2'` because the `MIGRATION_DATABASE_URL` secret
+> is a plain `postgresql://` URL and Alembic used it verbatim. Fix: `normalize_database_url()`
+> in `backend/app/config.py` is now the shared helper used by both `database_url_computed` and
+> `alembic/env.py`. Secret update is optional.
 
 ## 1. Current architecture
 

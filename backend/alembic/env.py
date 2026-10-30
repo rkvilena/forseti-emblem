@@ -4,6 +4,7 @@ import os
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app.config import normalize_database_url
 from app.db import Base
 from app import models  # noqa: F401
 
@@ -18,7 +19,7 @@ def get_url() -> str:
     url = os.getenv("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL must be set for Alembic migrations")
-    return url
+    return normalize_database_url(url)
 
 
 target_metadata = Base.metadata

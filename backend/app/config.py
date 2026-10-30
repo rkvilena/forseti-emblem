@@ -14,6 +14,25 @@ from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def normalize_database_url(url: str) -> str:
+    """Normalize a PostgreSQL URL to the psycopg v3 driver scheme.
+
+    Common PostgreSQL URL formats (e.g. `postgres://` or `postgresql://`)
+    are normalized to use the psycopg v3 driver (`postgresql+psycopg://`)
+    so Supabase-style connection strings work out of the box. This is the
+    single source of driver-scheme normalization and is shared with
+    Alembic (`alembic/env.py`), which does not go through Settings.
+    """
+
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://") :]
+
+    if url.startswith("postgresql://") and "+psycopg" not in url.split("://", 1)[0]:
+        return "postgresql+psycopg://" + url[len("postgresql://") :]
+
+    return url
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
@@ -188,14 +207,7 @@ class Settings(BaseSettings):
         if not self.database_url:
             raise ValueError(f"DATABASE_URL empty : {self.database_url}")
 
-        url = self.database_url
-        if url.startswith("postgres://"):
-            url = "postgresql+psycopg://" + url[len("postgres://") :]
-        elif (
-            url.startswith("postgresql://") and "+psycopg" not in url.split("://", 1)[0]
-        ):
-            url = "postgresql+psycopg://" + url[len("postgresql://") :]
-        return url
+        return normalize_database_url(self.database_url)
 
     @computed_field
     @property
