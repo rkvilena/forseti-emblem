@@ -98,7 +98,7 @@ def pgvector_available() -> bool:
     """Return True if the 'vector' extension is installed on the database."""
     try:
         with engine.connect() as conn:
-            result = conn.execute(
+            result: object = conn.execute(
                 text(
                     "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')"
                 )

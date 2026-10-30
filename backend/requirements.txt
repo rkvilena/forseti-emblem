@@ -1,41 +1,46 @@
+# Pinned to the versions validated locally. mypy is a blocking CI gate, so unpinned
+# deps are a build hazard: a newer SQLAlchemy already changed inference for
+# `scalar_one()` on a `text()` query and broke the build with [var-annotated].
+# Bump deliberately, then re-run `ruff check . && mypy app && pytest -q` before pushing.
+
 # Web Framework
-fastapi[standard]
-uvicorn[standard]
+fastapi[standard]==0.127.0
+uvicorn[standard]==0.40.0
 
 # Form parsing (required for /docs-login)
-python-multipart
+python-multipart==0.0.21
 
 # HTTP Client
-requests
-types-requests
+requests==2.32.5
+types-requests==2.33.0.20261030
 
 # HTML/Wikitext Parsing
-beautifulsoup4
-mwparserfromhell
+beautifulsoup4==4.14.3
+mwparserfromhell==0.7.2
 
 # Table parsing (Serenes Forest growth rates)
-pandas
+pandas==2.3.3
 
 # Required by pandas.read_html
-lxml
+lxml==6.0.2
 
 # Database
-sqlalchemy
-psycopg[binary]
-pgvector
-alembic
+sqlalchemy==2.0.45
+psycopg[binary]==3.3.2
+pgvector==0.4.2
+alembic==1.18.4
 
 # Caching / Rate limiting
-redis
+redis==7.1.1
 
 # Configuration
-pydantic-settings
-python-dotenv
+pydantic-settings==2.12.0
+python-dotenv==1.2.1
 
 # OpenAI
-openai
+openai==2.14.0
 
 # Dev tooling (formatter/typecheck/tests)
-ruff==0.6.8
+ruff==0.14.10
 mypy==1.19.1
-pytest
+pytest==9.0.2

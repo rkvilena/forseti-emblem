@@ -1,10 +1,11 @@
-randomfile/
 backend/.venv
 memory-bank/
-.vscode/settings.json
-.vscode/project_notes.txt
-**/__pycache__/
-**/.env
+randomfile/
+
 .ruff_cache/
 .mypy_cache/
-backend/app/__init__.py
+.vscode/settings.json
+.vscode/project_notes.txt
+
+**/__pycache__/
+**/.env

@@ -50,6 +50,26 @@ reproduced here** — only names and locations, so they can be rotated.
 > generic parameter removed in redis-py 8, the docs-auth middlewares match Starlette's
 > `_MiddlewareFactory` signature (`ASGIApp` + positional-or-keyword options), and
 > `types-requests` is installed.
+>
+> **Update — first blocking run (2026-10-30).** The gate failed on the clean checkout while
+> local runs passed, and the cause was worth documenting: `.gitignore` still contained
+> `backend/app/__init__.py`, so the *committed* tree had no package markers and `app/` shipped
+> as a namespace package. Runtime never noticed, but mypy named modules `routes.chat` /
+> `controllers.wiki_controller` instead of `app.routes.chat`, which turned all 16 relative
+> imports into `[misc] Relative import climbs too many namespaces`. Fix: drop that
+> `.gitignore` entry and track `app/__init__.py`, `app/routes/__init__.py`,
+> `app/controllers/__init__.py`. The second error, `db.py [var-annotated]` on
+> `conn.execute(text(...)).scalar_one()`, comes from unpinned SQLAlchemy (only `ruff`/`mypy`
+> are pinned), so that result is now annotated explicitly as `object`. Reproducing CI locally:
+> copy `backend/app` to a temp dir, delete the `__init__.py` markers, clear `.mypy_cache`,
+> run `mypy app`.
+>
+> **Update — dependencies pinned (2026-10-30).** `backend/requirements.txt` now pins all 20 direct
+> dependencies with `==` to the versions validated in the local venv, so the gate no longer
+> resolves fresh libraries on every build. This also fixed a stale `ruff==0.6.8` (local ran
+> 0.14.10), meaning local and CI formatting finally use the same engine. Transitive dependencies
+> are still resolved at install time; move to `pip freeze`-style locking if the build must be
+> byte-reproducible.
 
 ## 1. Current architecture
 
