@@ -38,6 +38,18 @@ reproduced here** — only names and locations, so they can be rotated.
 > no `availableSecrets` at all. The backend test step receives `DATABASE_URL` because
 > `app.db` builds the SQLAlchemy engine at import time. The plaintext secret substitutions
 > that remained on the backend trigger were deleted; those credentials still need rotation.
+>
+> **Update — backend typing gate (2026-10-30).** `mypy app` is now **blocking** in
+> `validate-backend`, and that step installs `backend/requirements.txt` so third-party
+> types are actually available (`ignore_missing_imports` would otherwise resolve most
+> libraries to `Any` and make the check vacuous). Getting to zero errors:
+> `Chapter`/`ChapterChunk` moved to SQLAlchemy 2.0 `DeclarativeBase` + `Mapped[...]`
+> (no more `Column[str]` leaking into call sites), `prop-decorator` is disabled in the
+> mypy config for the `@computed_field` + `@property` pattern, OpenAI
+> chat messages are typed as `ChatCompletionMessageParam`, `redis.Redis` drops the
+> generic parameter removed in redis-py 8, the docs-auth middlewares match Starlette's
+> `_MiddlewareFactory` signature (`ASGIApp` + positional-or-keyword options), and
+> `types-requests` is installed.
 
 ## 1. Current architecture
 

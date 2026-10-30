@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from .config import settings
 
@@ -103,7 +104,9 @@ def chat_completion(
     """
     client = get_openai_client()
 
-    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    messages: list[ChatCompletionMessageParam] = [
+        {"role": "system", "content": system_prompt}
+    ]
 
     if context:
         messages.append(

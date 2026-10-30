@@ -65,15 +65,12 @@ steps:
       - -c
       - |
         set -euo pipefail
-        pip install --quiet --disable-pip-version-check "ruff==0.6.8" "mypy==1.19.1"
         cd backend
+        pip install --quiet --disable-pip-version-check -r requirements.txt
         echo ":: ruff (blocking)"
         ruff check .
-        # TODO: make blocking once the pre-existing type errors are fixed.
-        # Currently 18 errors in 8 files (Column[str] vs str, Starlette middleware
-        # signatures), so this stage is advisory to keep main deployable.
-        echo ":: mypy (advisory)"
-        mypy app || echo "WARNING: mypy reported errors (advisory, not failing the build)"
+        echo ":: mypy (blocking)"
+        mypy app
 
   # -------------------------------------------------------------------- test ---
   # The unit tests import `app.main` at collection time, and `app.db` builds the

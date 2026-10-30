@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import settings
 
@@ -30,7 +30,14 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    """Declarative base for all ORM models.
+
+    Using ``DeclarativeBase`` (instead of the legacy ``declarative_base()``)
+    keeps the mapped attribute annotations statically typed, so mypy sees
+    ``Chapter.title`` as ``str`` rather than ``Column[str]``.
+    """
 
 
 def get_db() -> Generator[Session, None, None]:

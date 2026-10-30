@@ -10,10 +10,10 @@ from .config import settings
 logger = logging.getLogger(__name__)
 
 
-_redis_client: Optional["redis.Redis[bytes]"] = None
+_redis_client: Optional[redis.Redis] = None
 
 
-def get_redis_client() -> Optional["redis.Redis[bytes]"]:
+def get_redis_client() -> Optional[redis.Redis]:
     global _redis_client
 
     if _redis_client is not None:

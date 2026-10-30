@@ -7,6 +7,7 @@ python-multipart
 
 # HTTP Client
 requests
+types-requests
 
 # HTML/Wikitext Parsing
 beautifulsoup4

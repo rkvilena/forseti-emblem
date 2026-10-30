@@ -1,9 +1,9 @@
 from datetime import datetime
+from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     JSON,
-    Column,
     DateTime,
     ForeignKey,
     Integer,
@@ -11,7 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
 
@@ -19,42 +19,48 @@ from .db import Base
 class Chapter(Base):
     __tablename__ = "chapters"
 
-    id = Column(Integer, primary_key=True, index=True)
-    pageid = Column(Integer, unique=True, nullable=False, index=True)
-    title = Column(String(255), nullable=False)
-    infobox_title = Column(String(255), nullable=True)
-    game = Column(String(255), nullable=True)
-    objective = Column(String(255), nullable=True)
-    units_allowed = Column(Integer, nullable=True)
-    units_gained = Column(Text, nullable=True)
-    boss = Column(Text, nullable=True)
-    source_url = Column(String(512), nullable=True)
-    raw_infobox = Column(JSON, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    pageid: Mapped[int] = mapped_column(
+        Integer, unique=True, nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    infobox_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    game: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    objective: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    units_allowed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    units_gained: Mapped[str | None] = mapped_column(Text, nullable=True)
+    boss: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    raw_infobox: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
 
-    chunks = relationship(
-        "ChapterChunk", back_populates="chapter", cascade="all, delete-orphan"
+    chunks: Mapped[list["ChapterChunk"]] = relationship(
+        back_populates="chapter", cascade="all, delete-orphan"
     )
 
 
 class ChapterChunk(Base):
     __tablename__ = "chapter_chunks"
 
-    id = Column(Integer, primary_key=True, index=True)
-    chapter_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    chapter_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("chapters.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    section_title = Column(String(255), nullable=True)
-    kind = Column(String(50), nullable=False)
-    chunk_index = Column(Integer, nullable=False)
-    text = Column(Text, nullable=False)
-    embedding = Column(Vector(1536), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    section_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    kind: Mapped[str] = mapped_column(String(50), nullable=False)
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
 
-    chapter = relationship("Chapter", back_populates="chunks")
+    chapter: Mapped["Chapter"] = relationship(back_populates="chunks")
 
     __table_args__ = (
         UniqueConstraint(

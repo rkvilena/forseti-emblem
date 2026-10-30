@@ -28,6 +28,7 @@ from starlette.responses import (
     RedirectResponse,
     Response,
 )
+from starlette.types import ASGIApp
 
 from .config import settings
 
@@ -279,13 +280,15 @@ def _login_html(*, next_url: str, error: str | None) -> str:
 
 
 class DocsBasicAuthMiddleware(BaseHTTPMiddleware):
+    # `app` is typed as `ASGIApp` and the options are positional-or-keyword so
+    # the class matches Starlette's `_MiddlewareFactory` protocol accepted by
+    # `add_middleware`.
     def __init__(
         self,
-        app: FastAPI,
-        *,
-        enabled: bool,
-        username: str,
-        password: str,
+        app: ASGIApp,
+        enabled: bool = False,
+        username: str = "",
+        password: str = "",
     ) -> None:
         super().__init__(app)
         self.enabled = enabled
@@ -336,10 +339,9 @@ class DocsBasicAuthMiddleware(BaseHTTPMiddleware):
 class DocsSessionAuthMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
-        app: FastAPI,
-        *,
-        enabled: bool,
-        secret: str,
+        app: ASGIApp,
+        enabled: bool = False,
+        secret: str = "",
         cookie_name: str = _DOCS_COOKIE_NAME,
     ) -> None:
         super().__init__(app)

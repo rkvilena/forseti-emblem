@@ -11,3 +11,8 @@ python_version = "3.11"
 ignore_missing_imports = true
 warn_unused_ignores = true
 pretty = true
+# `@computed_field` stacked on `@property` is a documented pydantic pattern that
+# mypy cannot model (python/mypy#1362; pydantic recommends `# type: ignore`).
+# The error is disabled here rather than with inline ignores so that future
+# pydantic releases cannot turn into `unused-ignore` failures.
+disable_error_code = ["prop-decorator"]
