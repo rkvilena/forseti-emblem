@@ -3,12 +3,9 @@ from typing import Any, Dict
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..application.ingestion.service import ChapterIngestionService
 from ..application.ports.wiki import WikiClient
-from ..chapter_ingest import (
-    DuplicateChapterError,
-    ingest_chapter_to_db,
-    reingest_chapter_to_db,
-)
+from ..chapter_ingest import DuplicateChapterError
 from ..infrastructure.mediawiki import MediaWikiWikiClient
 from ..models import Chapter
 from ..parsers import (
@@ -137,8 +134,7 @@ def ingest_chapter_from_wikitext(
 
     # Ingest into database
     try:
-        chapter = ingest_chapter_to_db(
-            db=db,
+        chapter = ChapterIngestionService(db).ingest(
             pageid=pageid,
             title=page["title"],
             chapter_data=chapter_data,
@@ -176,8 +172,7 @@ def reingest_chapter_from_wikitext(
 
     chapter_data = parse_chapter_wikitext(wikitext)
 
-    chapter = reingest_chapter_to_db(
-        db=db,
+    chapter = ChapterIngestionService(db).reingest(
         pageid=pageid,
         title=page["title"],
         chapter_data=chapter_data,
