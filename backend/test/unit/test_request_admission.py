@@ -12,9 +12,9 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from app.application.chat import service
 from app.application.chat.results import ChatResult
 from app.config import settings
-from app.controllers import chat_controller
 from app.security import request_admission
 from app.security.request_admission import RequestContext
 
@@ -240,12 +240,12 @@ def test_admission_maps_unconfigured_secret_to_500(
 def test_first_rag_request_sets_single_session_cookie(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # The route normally reaches the DB; stub the controller so admission is the
+    # The route normally reaches the DB; stub the use case so admission is the
     # only thing under test and the request completes successfully.
     monkeypatch.setattr(
-        chat_controller,
-        "chat_rag",
-        lambda **_: ChatResult(response="ok", model="test", usage=None),
+        service.RagChatService,
+        "execute",
+        lambda self, command: ChatResult(response="ok", model="test", usage=None),
     )
 
     response = client.post("/chat/rag", json=_rag_payload("Hello"))

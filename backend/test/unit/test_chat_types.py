@@ -13,10 +13,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.application.chat import service
 from app.application.chat.commands import PlainChatCommand, RagChatCommand
 from app.application.chat.results import ChatResult, SourceReference, Usage
 from app.config import settings
-from app.controllers import chat_controller
 
 
 def _chapter(**overrides: Any) -> SimpleNamespace:
@@ -82,7 +82,7 @@ def test_chat_plain_returns_typed_result_with_usage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        chat_controller,
+        service,
         "chat_completion",
         lambda **_: (
             "answer",
@@ -90,7 +90,7 @@ def test_chat_plain_returns_typed_result_with_usage(
         ),
     )
 
-    result = chat_controller.chat_plain(
+    result = service.PlainChatService().execute(
         PlainChatCommand(
             message="Hi",
             system_prompt=None,
@@ -113,20 +113,19 @@ def test_chat_plain_returns_typed_result_with_usage(
 def test_chat_rag_returns_typed_sources(monkeypatch: pytest.MonkeyPatch) -> None:
     chapter = _chapter()
     monkeypatch.setattr(
-        chat_controller, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
+        service, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
     )
     monkeypatch.setattr(
-        chat_controller, "chat_completion", lambda **_: ("answer", None)
+        service, "chat_completion", lambda **_: ("answer", None)
     )
 
-    result = chat_controller.chat_rag(
-        db=None,  # type: ignore[arg-type]
-        command=RagChatCommand(
+    result = service.RagChatService(None).execute(  # type: ignore[arg-type]
+        RagChatCommand(
             message="Tell me about Prologue",
             top_k=1,
             temperature=0.3,
             system_prompt=None,
-        ),
+        )
     )
 
     assert isinstance(result, ChatResult)
@@ -146,16 +145,15 @@ def test_chat_rag_returns_typed_sources(monkeypatch: pytest.MonkeyPatch) -> None
 def test_chat_rag_fallback_returns_none_usage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(chat_controller, "retrieve_similar_chunks", lambda **_: [])
+    monkeypatch.setattr(service, "retrieve_similar_chunks", lambda **_: [])
 
-    result = chat_controller.chat_rag(
-        db=None,  # type: ignore[arg-type]
-        command=RagChatCommand(
+    result = service.RagChatService(None).execute(  # type: ignore[arg-type]
+        RagChatCommand(
             message="anything",
             top_k=1,
             temperature=0.3,
             system_prompt=None,
-        ),
+        )
     )
 
     assert result.response == "Not found in provided context."
@@ -180,7 +178,9 @@ def test_route_maps_typed_result_to_http_response(
             )
         ],
     )
-    monkeypatch.setattr(chat_controller, "chat_rag", lambda **_: typed)
+    monkeypatch.setattr(
+        service.RagChatService, "execute", lambda self, command: typed
+    )
 
     response = client.post("/chat/rag", json=_rag_payload())
 

@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlalchemy.orm import Session
 
 from ..application.chat.commands import PlainChatCommand, RagChatCommand
+from ..application.chat.dependencies import (
+    get_plain_chat_service,
+    get_rag_chat_service,
+)
 from ..application.chat.results import ChatResult
-from ..db import get_db
-from ..controllers import chat_controller
+from ..application.chat.service import PlainChatService, RagChatService
 from ..security.request_admission import RequestContext, admit_chat_request
 from ..security.turnstile import verify_turnstile_token
 from ..schemas.chat import (
@@ -52,7 +54,12 @@ def _to_chat_response(result: ChatResult) -> ChatResponse:
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, request: Request, response: Response) -> ChatResponse:
+def chat(
+    req: ChatRequest,
+    request: Request,
+    response: Response,
+    service: PlainChatService = Depends(get_plain_chat_service),
+) -> ChatResponse:
     context = RequestContext.from_request(request, response)
     admit_chat_request(
         context,
@@ -70,7 +77,7 @@ def chat(req: ChatRequest, request: Request, response: Response) -> ChatResponse
     )
 
     try:
-        result = chat_controller.chat_plain(command=command)
+        result = service.execute(command)
     except ValueError as e:
         # Typically: OPENAI_API_KEY not set
         raise HTTPException(status_code=500, detail=str(e))
@@ -85,7 +92,7 @@ def chat_rag(
     req: RagChatRequest,
     request: Request,
     response: Response,
-    db: Session = Depends(get_db),
+    service: RagChatService = Depends(get_rag_chat_service),
 ) -> ChatResponse:
     """RAG chat: embeds the question, retrieves similar DB chunks, and asks OpenAI with that context."""
     context = RequestContext.from_request(request, response)
@@ -106,7 +113,7 @@ def chat_rag(
     )
 
     try:
-        result = chat_controller.chat_rag(db=db, command=command)
+        result = service.execute(command)
     except ValueError as e:
         # Typically: OPENAI_API_KEY not set
         raise HTTPException(status_code=500, detail=str(e))

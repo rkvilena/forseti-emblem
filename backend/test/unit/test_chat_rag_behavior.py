@@ -2,7 +2,7 @@
 
 Covers the retrieval fallback, ``top_k`` clamping, and source filtering in
 ``GET /chat/rag`` as they behave today. Retrieval and OpenAI are mocked at the
-controller's module boundary; no live services are needed.
+``RagChatService`` module boundary; no live services are needed.
 """
 
 from types import SimpleNamespace
@@ -11,9 +11,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.application.chat import service
 from app.application.chat.results import ChatResult
 from app.config import settings
-from app.controllers import chat_controller
 
 
 def _rag_payload(message: str, top_k: int = 1) -> dict[str, object]:
@@ -52,7 +52,7 @@ def _chunk(chapter: SimpleNamespace) -> SimpleNamespace:
 def test_rag_returns_fallback_when_no_chunks(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(chat_controller, "retrieve_similar_chunks", lambda **_: [])
+    monkeypatch.setattr(service, "retrieve_similar_chunks", lambda **_: [])
 
     response = client.post("/chat/rag", json=_rag_payload("anything"))
 
@@ -68,11 +68,11 @@ def test_rag_clamps_top_k_above_max(
 ) -> None:
     captured: dict[str, int] = {}
 
-    def _capture_chat_rag(*, db: Any, command: Any) -> ChatResult:
+    def _capture_execute(self: Any, command: Any) -> ChatResult:
         captured["top_k"] = command.top_k
         return ChatResult(response="ok", model="test", usage=None)
 
-    monkeypatch.setattr(chat_controller, "chat_rag", _capture_chat_rag)
+    monkeypatch.setattr(service.RagChatService, "execute", _capture_execute)
 
     response = client.post(
         "/chat/rag", json=_rag_payload("Hello", top_k=settings.rag_top_k_max + 5)
@@ -87,10 +87,10 @@ def test_rag_returns_source_when_title_appears_in_message(
 ) -> None:
     chapter = _chapter()
     monkeypatch.setattr(
-        chat_controller, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
+        service, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
     )
     monkeypatch.setattr(
-        chat_controller, "chat_completion", lambda **_: ("answer", None)
+        service, "chat_completion", lambda **_: ("answer", None)
     )
 
     response = client.post(
@@ -118,10 +118,10 @@ def test_rag_returns_source_when_game_appears_in_message(
         game="Fire Emblem",
     )
     monkeypatch.setattr(
-        chat_controller, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
+        service, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
     )
     monkeypatch.setattr(
-        chat_controller, "chat_completion", lambda **_: ("answer", None)
+        service, "chat_completion", lambda **_: ("answer", None)
     )
 
     response = client.post(
@@ -138,10 +138,10 @@ def test_rag_omits_sources_when_no_reference_in_message(
 ) -> None:
     chapter = _chapter()
     monkeypatch.setattr(
-        chat_controller, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
+        service, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
     )
     monkeypatch.setattr(
-        chat_controller, "chat_completion", lambda **_: ("answer", None)
+        service, "chat_completion", lambda **_: ("answer", None)
     )
 
     response = client.post("/chat/rag", json=_rag_payload("What should I do here?"))
