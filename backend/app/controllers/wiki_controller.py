@@ -1,11 +1,9 @@
 from typing import Any, Dict
 
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..application.ingestion.service import ChapterIngestionService
 from ..application.ports.wiki import WikiClient
-from ..chapter_ingest import DuplicateChapterError
 from ..infrastructure.mediawiki import MediaWikiWikiClient
 from ..infrastructure.persistence.repository import ChapterRepository
 from ..models import Chapter
@@ -133,24 +131,14 @@ def ingest_chapter_from_wikitext(
     # Parse the wikitext
     chapter_data = parse_chapter_wikitext(wikitext)
 
-    # Ingest into database
-    try:
-        chapter = ChapterIngestionService(db).ingest(
-            pageid=pageid,
-            title=page["title"],
-            chapter_data=chapter_data,
-            generate_embeddings=generate_embeddings,
-        )
-    except DuplicateChapterError as exc:
-        detail: dict[str, Any] = {
-            "message": str(exc),
-            "chapter_title": exc.chapter_title,
-            "game": exc.game,
-        }
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=detail,
-        ) from exc
+    # Ingest into database. A duplicate raises ``DuplicateChapterError``, which
+    # the centralized handler maps to HTTP 409 with the structured detail.
+    chapter = ChapterIngestionService(db).ingest(
+        pageid=pageid,
+        title=page["title"],
+        chapter_data=chapter_data,
+        generate_embeddings=generate_embeddings,
+    )
 
     return {
         "status": "success",

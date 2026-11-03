@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 
 from ..application.chat.commands import PlainChatCommand, RagChatCommand
 from ..application.chat.dependencies import (
@@ -76,13 +76,9 @@ def chat(
         temperature=req.temperature,
     )
 
-    try:
-        result = service.execute(command)
-    except ValueError as e:
-        # Typically: OPENAI_API_KEY not set
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OpenAI request failed: {e}")
+    # Provider/configuration failures surface as application exceptions and are
+    # translated once by the centralized handlers in ``app.api.exception_handlers``.
+    result = service.execute(command)
 
     return _to_chat_response(result)
 
@@ -112,13 +108,8 @@ def chat_rag(
         system_prompt=req.system_prompt,
     )
 
-    try:
-        result = service.execute(command)
-    except ValueError as e:
-        # Typically: OPENAI_API_KEY not set
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"RAG chat failed: {e}")
+    # Provider/configuration failures surface as application exceptions and are
+    # translated once by the centralized handlers in ``app.api.exception_handlers``.
+    result = service.execute(command)
 
     return _to_chat_response(result)
-

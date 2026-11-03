@@ -1,13 +1,16 @@
 """OpenAI-backed implementation of the ``AnswerProvider`` port.
 
 Converts the SDK-shaped ``(text, usage_dict)`` returned by
-``openai_service.chat_completion`` into the application ``GeneratedAnswer`` type.
+``openai_service.chat_completion`` into the application ``GeneratedAnswer`` type,
+and translates SDK/transport failures into ``ConfigurationError`` (missing setup)
+or ``ProviderUnavailableError`` (provider failure).
 """
 
 from __future__ import annotations
 
 from ...application.ports.models import GeneratedAnswer, Usage
 from ...config import settings
+from ...domain.exceptions import ConfigurationError, ProviderUnavailableError
 from ...openai_service import chat_completion
 
 
@@ -35,12 +38,17 @@ class OpenAIAnswerProvider:
         system_prompt: str,
         temperature: float,
     ) -> GeneratedAnswer:
-        text, usage = chat_completion(
-            system_prompt=system_prompt,
-            user_message=question,
-            context=context,
-            temperature=temperature,
-        )
+        try:
+            text, usage = chat_completion(
+                system_prompt=system_prompt,
+                user_message=question,
+                context=context,
+                temperature=temperature,
+            )
+        except ValueError as exc:
+            raise ConfigurationError(str(exc)) from exc
+        except Exception as exc:
+            raise ProviderUnavailableError("Answer provider request failed") from exc
 
         return GeneratedAnswer(
             text=text,

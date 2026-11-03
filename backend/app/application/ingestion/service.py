@@ -18,7 +18,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from ...chapter_ingest import DuplicateChapterError, build_chapter_records_from_wikitext
+from ...chapter_ingest import build_chapter_records_from_wikitext
+from ...domain.exceptions import DuplicateChapterError
 from ...infrastructure.persistence.repository import ChapterRepository
 from ...models import Chapter
 from ..ports.embeddings import EmbeddingProvider

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from ..application.ports.embeddings import EmbeddingProvider
+from ..domain.exceptions import RetrievalError
 from ..infrastructure.persistence.repository import ChapterRepository
 from ..models import ChapterChunk
 
@@ -53,10 +54,13 @@ class Retriever:
 
         query_embedding = self._embedding_provider.embed(query)
 
-        return ChapterRepository(db).retrieve_similar_chunks(
-            query_embedding,
-            options,
-        )
+        try:
+            return ChapterRepository(db).retrieve_similar_chunks(
+                query_embedding,
+                options,
+            )
+        except Exception as exc:
+            raise RetrievalError("Chunk retrieval failed") from exc
 
 
 def retrieve_similar_chunks(

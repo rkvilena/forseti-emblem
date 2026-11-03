@@ -16,15 +16,6 @@ from .application.ingestion.models import ChapterDraft, ChunkDraft
 logger = logging.getLogger(__name__)
 
 
-class DuplicateChapterError(Exception):
-    """Raised when an equivalent chapter already exists in the database."""
-
-    def __init__(self, message: str, chapter_title: str | None, game: str | None):
-        super().__init__(message)
-        self.chapter_title = chapter_title
-        self.game = game
-
-
 def build_chapter_records_from_wikitext(
     pageid: int,
     title: str,

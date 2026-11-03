@@ -17,11 +17,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.ingestion.models import ChapterDraft
 from app.application.ingestion.service import ChapterIngestionService
-from app.chapter_ingest import (
-    DuplicateChapterError,
-    build_chapter_records_from_wikitext,
-)
+from app.chapter_ingest import build_chapter_records_from_wikitext
 from app.db import Base
+from app.domain.exceptions import DuplicateChapterError
 from app.models import Chapter, ChapterChunk
 
 from fakes import FakeEmbeddingProvider
