@@ -3,12 +3,13 @@ from typing import Any, Dict
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..application.ports.wiki import WikiClient
 from ..chapter_ingest import (
     DuplicateChapterError,
     ingest_chapter_to_db,
     reingest_chapter_to_db,
 )
-from ..mediawiki_client import MediaWikiClient
+from ..infrastructure.mediawiki import MediaWikiWikiClient
 from ..models import Chapter
 from ..parsers import (
     extract_tables_as_json,
@@ -18,7 +19,7 @@ from ..parsers import (
 )
 
 
-client = MediaWikiClient()
+client: WikiClient = MediaWikiWikiClient()
 
 
 def get_category_pages(

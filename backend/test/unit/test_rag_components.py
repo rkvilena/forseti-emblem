@@ -9,11 +9,10 @@ import inspect
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
-
-from app.services import answer_generation
-from app.services import retrieval as retrieval_module
-from app.services.answer_generation import AnswerGenerator
+from app.services.answer_generation import (
+    FIRE_EMBLEM_SYSTEM_PROMPT,
+    AnswerGenerator,
+)
 from app.services.context_builder import (
     ContextBudget,
     ContextBuilder,
@@ -25,6 +24,8 @@ from app.services.retrieval import (
     retrieve_similar_chunks,
 )
 from app.services.source_selector import SourceSelector, select_sources
+
+from fakes import FakeAnswerProvider, FakeEmbeddingProvider
 
 
 def _chapter(**overrides: Any) -> SimpleNamespace:
@@ -104,8 +105,7 @@ def test_retrieval_options_defaults_are_threaded() -> None:
     assert options.chapter_filter is None
 
 
-def test_retrieval_applies_top_k_limit(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(retrieval_module, "create_embedding", lambda _: [0.0] * 4)
+def test_retrieval_applies_top_k_limit() -> None:
     limits: list[int] = []
     db = _FakeDB(limits, results=[])
 
@@ -113,37 +113,27 @@ def test_retrieval_applies_top_k_limit(monkeypatch: pytest.MonkeyPatch) -> None:
         db,  # type: ignore[arg-type]
         "question",
         RetrievalOptions(top_k=3),
+        embedding_provider=FakeEmbeddingProvider(),
     )
 
     assert result == []
     assert limits == [3]
 
 
-def test_retriever_delegates_to_retrieve_similar_chunks(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, Any] = {}
+def test_retriever_uses_injected_embedding_provider() -> None:
+    limits: list[int] = []
+    db = _FakeDB(limits, results=[])
+    provider = FakeEmbeddingProvider()
 
-    def _fake(db: Any, query: str, options: RetrievalOptions) -> list[Any]:
-        captured["db"] = db
-        captured["query"] = query
-        captured["options"] = options
-        return []
-
-    monkeypatch.setattr(retrieval_module, "retrieve_similar_chunks", _fake)
-
-    result = Retriever().retrieve(
-        db="DB",  # type: ignore[arg-type]
+    result = Retriever(provider).retrieve(
+        db=db,  # type: ignore[arg-type]
         query="q",
         options=RetrievalOptions(top_k=2),
     )
 
     assert result == []
-    assert captured == {
-        "db": "DB",
-        "query": "q",
-        "options": RetrievalOptions(top_k=2),
-    }
+    assert provider.embedded == ["q"]
+    assert limits == [2]
 
 
 
@@ -244,50 +234,36 @@ def test_source_selector_class_delegates() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_generate_answer_uses_default_system_prompt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, Any] = {}
+def test_generate_answer_uses_default_system_prompt() -> None:
+    provider = FakeAnswerProvider(text="answer")
 
-    def _fake_completion(**kwargs: Any) -> tuple[str, dict[str, int] | None]:
-        captured.update(kwargs)
-        return "answer", None
-
-    monkeypatch.setattr(answer_generation, "chat_completion", _fake_completion)
-
-    text, usage = AnswerGenerator().generate(
+    answer = AnswerGenerator(provider).generate(
         question="Hi",
         context="CTX",
         temperature=0.3,
     )
 
-    assert text == "answer"
-    assert usage is None
-    assert captured["system_prompt"] == answer_generation.FIRE_EMBLEM_SYSTEM_PROMPT
-    assert captured["user_message"] == "Hi"
-    assert captured["context"] == "CTX"
+    assert answer.text == "answer"
+    assert answer.usage is None
+    call = provider.calls[0]
+    assert call["system_prompt"] == FIRE_EMBLEM_SYSTEM_PROMPT
+    assert call["question"] == "Hi"
+    assert call["context"] == "CTX"
 
 
-def test_generate_answer_honors_prompt_override(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, Any] = {}
+def test_generate_answer_honors_prompt_override() -> None:
+    provider = FakeAnswerProvider(text="answer")
 
-    def _fake_completion(**kwargs: Any) -> tuple[str, dict[str, int] | None]:
-        captured.update(kwargs)
-        return "answer", None
-
-    monkeypatch.setattr(answer_generation, "chat_completion", _fake_completion)
-
-    answer_generation.generate_answer(
+    AnswerGenerator(provider).generate(
         question="Hi",
         context=None,
         temperature=0.7,
         system_prompt="be terse",
     )
 
-    assert captured["system_prompt"] == "be terse"
-    assert captured["temperature"] == 0.7
+    call = provider.calls[0]
+    assert call["system_prompt"] == "be terse"
+    assert call["temperature"] == 0.7
 
 
 # --------------------------------------------------------------------------- #

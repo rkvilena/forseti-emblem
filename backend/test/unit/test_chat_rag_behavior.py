@@ -1,10 +1,12 @@
 """Characterization tests for RAG chat behavior (Phase 0).
 
 Covers the retrieval fallback, ``top_k`` clamping, and source filtering in
-``GET /chat/rag`` as they behave today. Retrieval and OpenAI are mocked at the
-``RagChatService`` module boundary; no live services are needed.
+``GET /chat/rag`` as they behave today. Retrieval and OpenAI are replaced with
+in-memory fakes by overriding the chat dependency providers, so no live
+Postgres, Redis, or OpenAI is needed.
 """
 
+from collections.abc import Iterator
 from types import SimpleNamespace
 from typing import Any
 
@@ -12,9 +14,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.application.chat import service
+from app.application.chat.dependencies import get_rag_chat_service
 from app.application.chat.results import ChatResult
+from app.application.chat.service import RagChatService
 from app.config import settings
-from app.services import answer_generation, retrieval
+from app.main import app
+from app.services.answer_generation import AnswerGenerator
+
+from fakes import FakeAnswerProvider, FakeRetriever
 
 
 def _rag_payload(message: str, top_k: int = 1) -> dict[str, object]:
@@ -53,10 +60,27 @@ def _chunk(chapter: SimpleNamespace) -> SimpleNamespace:
     )
 
 
-def test_rag_returns_fallback_when_no_chunks(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(retrieval, "retrieve_similar_chunks", lambda **_: [])
+def _override_rag(chunks: list[Any]) -> None:
+    """Replace the RAG use case with one built from in-memory fakes."""
+
+    def _factory() -> RagChatService:
+        return RagChatService(  # type: ignore[arg-type]
+            None,
+            retriever=FakeRetriever(chunks),
+            answer_generator=AnswerGenerator(FakeAnswerProvider(text="answer")),
+        )
+
+    app.dependency_overrides[get_rag_chat_service] = _factory
+
+
+@pytest.fixture(autouse=True)
+def _clear_overrides() -> Iterator[None]:
+    yield
+    app.dependency_overrides.clear()
+
+
+def test_rag_returns_fallback_when_no_chunks(client: TestClient) -> None:
+    _override_rag([])
 
     response = client.post("/chat/rag", json=_rag_payload("anything"))
 
@@ -87,15 +111,10 @@ def test_rag_clamps_top_k_above_max(
 
 
 def test_rag_returns_source_when_title_appears_in_message(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient,
 ) -> None:
     chapter = _chapter()
-    monkeypatch.setattr(
-        retrieval, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
-    )
-    monkeypatch.setattr(
-        answer_generation, "chat_completion", lambda **_: ("answer", None)
-    )
+    _override_rag([_chunk(chapter)])
 
     response = client.post(
         "/chat/rag", json=_rag_payload("Tell me about Prologue")
@@ -114,19 +133,14 @@ def test_rag_returns_source_when_title_appears_in_message(
 
 
 def test_rag_returns_source_when_game_appears_in_message(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient,
 ) -> None:
     chapter = _chapter(
         title="Chapter 1",
         infobox_title="Chapter 1",
         game="Fire Emblem",
     )
-    monkeypatch.setattr(
-        retrieval, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
-    )
-    monkeypatch.setattr(
-        answer_generation, "chat_completion", lambda **_: ("answer", None)
-    )
+    _override_rag([_chunk(chapter)])
 
     response = client.post(
         "/chat/rag", json=_rag_payload("Which Fire Emblem game is this?")
@@ -138,15 +152,10 @@ def test_rag_returns_source_when_game_appears_in_message(
 
 
 def test_rag_omits_sources_when_no_reference_in_message(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient,
 ) -> None:
     chapter = _chapter()
-    monkeypatch.setattr(
-        retrieval, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
-    )
-    monkeypatch.setattr(
-        answer_generation, "chat_completion", lambda **_: ("answer", None)
-    )
+    _override_rag([_chunk(chapter)])
 
     response = client.post("/chat/rag", json=_rag_payload("What should I do here?"))
 

@@ -10,11 +10,24 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from .application.ports.embeddings import EmbeddingProvider
 from .models import Chapter, ChapterChunk
-from .openai_service import create_embeddings_batch
 
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_embedding_provider(
+    embedding_provider: EmbeddingProvider | None,
+) -> EmbeddingProvider:
+    """Return the injected provider, or the production OpenAI adapter."""
+
+    if embedding_provider is not None:
+        return embedding_provider
+
+    from .infrastructure.openai import OpenAIEmbeddingProvider
+
+    return OpenAIEmbeddingProvider()
 
 
 class DuplicateChapterError(Exception):
@@ -145,6 +158,7 @@ def ingest_chapter_to_db(
     title: str,
     chapter_data: dict[str, Any],
     generate_embeddings: bool = True,
+    embedding_provider: EmbeddingProvider | None = None,
 ) -> Chapter:
     """
     Ingest a chapter into the database.
@@ -158,6 +172,7 @@ def ingest_chapter_to_db(
         title: Page title
         chapter_data: Parsed chapter data
         generate_embeddings: Whether to generate OpenAI embeddings
+        embedding_provider: Embedding port; defaults to the OpenAI adapter
 
     Returns:
         The created Chapter record
@@ -186,8 +201,9 @@ def ingest_chapter_to_db(
     if generate_embeddings and chunks:
         logger.info(f"Generating embeddings for {len(chunks)} chunks...")
         try:
+            provider = _resolve_embedding_provider(embedding_provider)
             texts = [chunk.text for chunk in chunks]
-            embeddings = create_embeddings_batch(texts)
+            embeddings = provider.embed_batch(texts)
             for chunk, embedding in zip(chunks, embeddings):
                 chunk.embedding = embedding
             logger.info(f"Generated {len(embeddings)} embeddings")
@@ -215,6 +231,7 @@ def reingest_chapter_to_db(
     title: str,
     chapter_data: dict[str, Any],
     generate_embeddings: bool = True,
+    embedding_provider: EmbeddingProvider | None = None,
 ) -> Chapter:
     chapter_row, chunks = build_chapter_records_from_wikitext(
         pageid, title, chapter_data
@@ -229,13 +246,15 @@ def reingest_chapter_to_db(
             title=title,
             chapter_data=chapter_data,
             generate_embeddings=generate_embeddings,
+            embedding_provider=embedding_provider,
         )
 
     if generate_embeddings and chunks:
         logger.info(f"Regenerating embeddings for {len(chunks)} chunks...")
         try:
+            provider = _resolve_embedding_provider(embedding_provider)
             texts = [chunk.text for chunk in chunks]
-            embeddings = create_embeddings_batch(texts)
+            embeddings = provider.embed_batch(texts)
             for chunk, embedding in zip(chunks, embeddings):
                 chunk.embedding = embedding
             logger.info(f"Generated {len(embeddings)} embeddings")

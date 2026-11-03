@@ -8,9 +8,9 @@ to change and is independently testable.
 
 The services read in business terms and import no FastAPI HTTP types
 (``Request``/``Response``/``HTTPException``); translating failures into HTTP
-responses is the route's job. For this phase the services still depend on the
-flat ``openai_service`` helper behind the answer generator; provider ports and
-repositories arrive in later phases.
+responses is the route's job. The services depend on provider *ports* (through
+the RAG components and the answer generator) rather than the OpenAI SDK directly;
+repositories arrive in a later phase.
 """
 
 from __future__ import annotations
@@ -23,20 +23,7 @@ from ...services.context_builder import ContextBuilder
 from ...services.retrieval import Retriever, RetrievalOptions
 from ...services.source_selector import SourceSelector
 from .commands import PlainChatCommand, RagChatCommand
-from .results import ChatResult, Usage
-
-
-def _to_usage(raw: dict[str, int] | None) -> Usage | None:
-    """Convert the provider usage mapping into the typed application ``Usage``."""
-
-    if raw is None:
-        return None
-
-    return Usage(
-        prompt_tokens=raw.get("prompt_tokens"),
-        completion_tokens=raw.get("completion_tokens"),
-        total_tokens=raw.get("total_tokens"),
-    )
+from .results import ChatResult
 
 
 class PlainChatService:
@@ -46,7 +33,7 @@ class PlainChatService:
         self._answer_generator = answer_generator or AnswerGenerator()
 
     def execute(self, command: PlainChatCommand) -> ChatResult:
-        text, usage = self._answer_generator.generate(
+        answer = self._answer_generator.generate(
             system_prompt=command.system_prompt,
             question=command.message,
             context=command.context,
@@ -54,9 +41,9 @@ class PlainChatService:
         )
 
         return ChatResult(
-            response=text,
-            model=settings.openai_chat_model,
-            usage=_to_usage(usage),
+            response=answer.text,
+            model=answer.model,
+            usage=answer.usage,
         )
 
 
@@ -93,7 +80,7 @@ class RagChatService:
 
         context = self._context_builder.build(chunks)
 
-        text, usage = self._answer_generator.generate(
+        answer = self._answer_generator.generate(
             system_prompt=command.system_prompt,
             question=command.message,
             context=context,
@@ -106,9 +93,9 @@ class RagChatService:
         )
 
         return ChatResult(
-            response=text,
-            model=settings.openai_chat_model,
-            usage=_to_usage(usage),
+            response=answer.text,
+            model=answer.model,
+            usage=answer.usage,
             sources=sources or None,
         )
 

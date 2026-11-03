@@ -45,6 +45,14 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         def __init__(self, store: dict[str, int]):
             self.store = store
 
+        def incr(self, key: str) -> int:
+            current = self.store.get(key, 0) + 1
+            self.store[key] = current
+            return current
+
+        def expire(self, key: str, ttl: int) -> bool:
+            return True
+
         def get(self, key: str) -> bytes | None:
             value = self.store.get(key)
             if value is None:

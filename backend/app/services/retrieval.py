@@ -1,8 +1,8 @@
 """Retrieval component of the RAG pipeline.
 
-Owns query embedding and the pgvector similarity query, so callers never build
-vector SQL directly. ``create_embedding`` stays inside this component so the use
-case does not need to know how the query vector is produced.
+Owns query embedding (through the ``EmbeddingProvider`` port) and the pgvector
+similarity query, so callers never build vector SQL directly and the use case
+does not need to know how the query vector is produced.
 """
 
 from __future__ import annotations
@@ -11,8 +11,8 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session, selectinload
 
+from ..application.ports.embeddings import EmbeddingProvider
 from ..models import ChapterChunk
-from ..openai_service import create_embedding
 
 
 @dataclass(frozen=True)
@@ -29,33 +29,15 @@ class RetrievalOptions:
     chapter_filter: int | None = None
 
 
-def retrieve_similar_chunks(
-    db: Session,
-    query: str,
-    options: RetrievalOptions,
-) -> list[ChapterChunk]:
-    """Embed ``query`` and return the most similar chunks from Postgres."""
-
-    query = query.strip()
-    if not query:
-        return []
-
-    query_embedding = create_embedding(query)
-
-    # cosine_distance() is provided by pgvector's SQLAlchemy integration.
-    # Lower distance = more similar.
-    return (
-        db.query(ChapterChunk)
-        .options(selectinload(ChapterChunk.chapter))
-        .filter(ChapterChunk.embedding.isnot(None))
-        .order_by(ChapterChunk.embedding.cosine_distance(query_embedding))
-        .limit(options.top_k)
-        .all()
-    )
-
-
 class Retriever:
     """Retrieve the most similar chapter chunks for a query."""
+
+    def __init__(self, embedding_provider: EmbeddingProvider | None = None) -> None:
+        if embedding_provider is None:
+            from ..infrastructure.openai import OpenAIEmbeddingProvider
+
+            embedding_provider = OpenAIEmbeddingProvider()
+        self._embedding_provider = embedding_provider
 
     def retrieve(
         self,
@@ -63,4 +45,30 @@ class Retriever:
         query: str,
         options: RetrievalOptions,
     ) -> list[ChapterChunk]:
-        return retrieve_similar_chunks(db=db, query=query, options=options)
+        query = query.strip()
+        if not query:
+            return []
+
+        query_embedding = self._embedding_provider.embed(query)
+
+        # cosine_distance() is provided by pgvector's SQLAlchemy integration.
+        # Lower distance = more similar.
+        return (
+            db.query(ChapterChunk)
+            .options(selectinload(ChapterChunk.chapter))
+            .filter(ChapterChunk.embedding.isnot(None))
+            .order_by(ChapterChunk.embedding.cosine_distance(query_embedding))
+            .limit(options.top_k)
+            .all()
+        )
+
+
+def retrieve_similar_chunks(
+    db: Session,
+    query: str,
+    options: RetrievalOptions,
+    embedding_provider: EmbeddingProvider | None = None,
+) -> list[ChapterChunk]:
+    """Embed ``query`` and return the most similar chunks from Postgres."""
+
+    return Retriever(embedding_provider).retrieve(db=db, query=query, options=options)

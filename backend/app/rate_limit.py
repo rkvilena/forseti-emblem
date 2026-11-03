@@ -4,7 +4,12 @@ from typing import Optional
 import redis
 from fastapi import HTTPException, status
 
+from .application.ports.rate_limit import RateLimitStore
 from .config import settings
+from .infrastructure.redis.rate_limit_store import (
+    RateLimitStoreError,
+    RedisRateLimitStore,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -40,10 +45,23 @@ def get_redis_client() -> Optional[redis.Redis]:
     return _redis_client
 
 
+def get_rate_limit_store() -> Optional[RateLimitStore]:
+    """Build the rate-limit store, or ``None`` when Redis is unavailable.
+
+    The policy treats ``None`` as a hard failure (HTTP 500); a store that fails
+    mid-operation raises ``RateLimitStoreError`` and degrades gracefully.
+    """
+
+    client = get_redis_client()
+    if client is None:
+        return None
+    return RedisRateLimitStore(client)
+
+
 def enforce_ip_rate_limit(ip: Optional[str], *, scope: str = "chat") -> None:
     """Enforce a simple fixed-window rate limit per IP using Redis.
 
-    If Redis or IP is unavailable, this function becomes a no-op.
+    If the store is unavailable, this function raises HTTPException 500.
     Raises HTTPException 429 when the limit is exceeded.
     """
 
@@ -53,8 +71,8 @@ def enforce_ip_rate_limit(ip: Optional[str], *, scope: str = "chat") -> None:
             detail="IP address is required for accessing the endpoint",
         )
 
-    client = get_redis_client()
-    if client is None:
+    store = get_rate_limit_store()
+    if store is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Rate limiting backend is unavailable",
@@ -65,38 +83,35 @@ def enforce_ip_rate_limit(ip: Optional[str], *, scope: str = "chat") -> None:
     short_max = settings.rate_limit_short_ip_requests
     long_max = settings.rate_limit_long_ip_requests
 
-    key_short = f"rate:{scope}:s:{ip}"
-    key_long = f"rate:{scope}:l:{ip}"
+    key_short, key_long = store.ip_keys(scope, ip)
 
     try:
-        with client.pipeline() as pipe:
-            pipe.incr(key_short)
-            pipe.expire(key_short, short_window)
-            pipe.incr(key_long)
-            pipe.expire(key_long, long_window)
-            count_short, _, count_long, _ = pipe.execute()
+        count_short = store.incr(key_short)
+        store.expire(key_short, short_window)
+        count_long = store.incr(key_long)
+        store.expire(key_long, long_window)
 
-        if isinstance(count_short, int) and count_short > short_max:
+        if count_short > short_max:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Rate limit exceeded for this IP. Please try again later.",
             )
 
-        if isinstance(count_long, int) and count_long > long_max:
+        if count_long > long_max:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Rate limit exceeded for this IP. Please try again later.",
             )
     except HTTPException:
         raise
-    except Exception as exc:  # pragma: no cover - defensive
-        # On Redis errors, degrade gracefully and do not block the request.
+    except RateLimitStoreError as exc:
+        # On store errors, degrade gracefully and do not block the request.
         logger.error("IP rate limiting failed: %s", exc)
 
 
 def enforce_session_quota(session_id: str, *, scope: str) -> None:
-    client = get_redis_client()
-    if client is None:
+    store = get_rate_limit_store()
+    if store is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Rate limiting backend is unavailable",
@@ -105,28 +120,26 @@ def enforce_session_quota(session_id: str, *, scope: str) -> None:
     long_window = settings.rate_limit_long_window_seconds
     long_max = settings.session_rate_limit_long_ip_requests
 
-    key_long = f"session:{scope}:{session_id}"
+    key_long = store.session_quota_key(scope, session_id)
 
     try:
-        with client.pipeline() as pipe:
-            pipe.incr(key_long)
-            pipe.expire(key_long, long_window)
-            count_long, _ = pipe.execute()
+        count_long = store.incr(key_long)
+        store.expire(key_long, long_window)
 
-        if isinstance(count_long, int) and count_long > long_max:
+        if count_long > long_max:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Rate limit exceeded for this session. Please try again later.",
             )
     except HTTPException:
         raise
-    except Exception as exc:  # pragma: no cover - defensive
+    except RateLimitStoreError as exc:
         logger.error("Session rate limiting failed: %s", exc)
 
 
 def enforce_session_cooldown(session_id: str, *, scope: str) -> None:
-    client = get_redis_client()
-    if client is None:
+    store = get_rate_limit_store()
+    if store is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Rate limiting backend is unavailable",
@@ -136,28 +149,25 @@ def enforce_session_cooldown(session_id: str, *, scope: str) -> None:
     threshold = settings.session_cooldown_threshold
     cooldown = settings.session_cooldown_duration_seconds
 
-    key_count = f"cooldown:{scope}:c:{session_id}"
-    key_block = f"cooldown:{scope}:b:{session_id}"
+    key_count, key_block = store.cooldown_keys(scope, session_id)
 
     try:
-        if client.get(key_block):
+        if store.get(key_block):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Cooldown in effect for this session. Please wait before sending more questions.",
             )
 
-        with client.pipeline() as pipe:
-            pipe.incr(key_count)
-            pipe.expire(key_count, window)
-            count, _ = pipe.execute()
+        count = store.incr(key_count)
+        store.expire(key_count, window)
 
-        if isinstance(count, int) and count > threshold:
-            client.setex(key_block, cooldown, b"1")
+        if count > threshold:
+            store.setex(key_block, cooldown, b"1")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Cooldown in effect for this session. Please wait before sending more questions.",
             )
     except HTTPException:
         raise
-    except Exception as exc:  # pragma: no cover - defensive
+    except RateLimitStoreError as exc:
         logger.error("Session cooldown enforcement failed: %s", exc)

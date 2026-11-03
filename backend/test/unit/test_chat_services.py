@@ -1,21 +1,22 @@
-"""Unit tests for the chat application services (Phase 3).
+"""Unit tests for the chat application services (Phase 3; ports wired in 5).
 
-The use cases are exercised in isolation with fakes for retrieval and the
-completion provider; no live Postgres, Redis, or OpenAI is required.
+The use cases are exercised in isolation with in-memory fakes for the provider
+ports; no live Postgres, Redis, or OpenAI is required.
 """
 
 import inspect
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
-
 from app.application.chat import service
 from app.application.chat.commands import PlainChatCommand, RagChatCommand
 from app.application.chat.results import ChatResult, SourceReference, Usage
 from app.config import settings
-from app.services import answer_generation, context_builder, retrieval
+from app.services import answer_generation
+from app.services.answer_generation import AnswerGenerator
 from app.services.retrieval import RetrievalOptions
+
+from fakes import FakeAnswerProvider, FakeRetriever
 
 
 def _chapter(**overrides: Any) -> SimpleNamespace:
@@ -24,6 +25,9 @@ def _chapter(**overrides: Any) -> SimpleNamespace:
         "title": "Prologue",
         "infobox_title": "Prologue: A Beginning",
         "game": "Fire Emblem: The Blazing Blade",
+        "objective": "Seize the gate",
+        "units_gained": None,
+        "boss": "Brigand Leader",
         "pageid": 101,
         "source_url": "https://example.test/prologue",
     }
@@ -41,22 +45,14 @@ def _chunk(chapter: SimpleNamespace) -> SimpleNamespace:
     )
 
 
-def test_plain_service_maps_usage_and_defaults_system_prompt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, Any] = {}
+def test_plain_service_maps_usage_and_defaults_system_prompt() -> None:
+    provider = FakeAnswerProvider(
+        text="answer",
+        model=settings.openai_chat_model,
+        usage=Usage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
 
-    def _fake_completion(**kwargs: Any) -> tuple[str, dict[str, int] | None]:
-        captured.update(kwargs)
-        return "answer", {
-            "prompt_tokens": 1,
-            "completion_tokens": 2,
-            "total_tokens": 3,
-        }
-
-    monkeypatch.setattr(answer_generation, "chat_completion", _fake_completion)
-
-    result = service.PlainChatService().execute(
+    result = service.PlainChatService(answer_generator=AnswerGenerator(provider)).execute(
         PlainChatCommand(
             message="Hi",
             system_prompt=None,
@@ -70,23 +66,16 @@ def test_plain_service_maps_usage_and_defaults_system_prompt(
         model=settings.openai_chat_model,
         usage=Usage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
     )
-    assert captured["system_prompt"] == answer_generation.FIRE_EMBLEM_SYSTEM_PROMPT
-    assert captured["user_message"] == "Hi"
-    assert captured["context"] is None
+    call = provider.calls[0]
+    assert call["system_prompt"] == answer_generation.FIRE_EMBLEM_SYSTEM_PROMPT
+    assert call["question"] == "Hi"
+    assert call["context"] is None
 
 
-def test_plain_service_honors_overrides(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, Any] = {}
+def test_plain_service_honors_overrides() -> None:
+    provider = FakeAnswerProvider(text="answer")
 
-    def _fake_completion(**kwargs: Any) -> tuple[str, dict[str, int] | None]:
-        captured.update(kwargs)
-        return "answer", None
-
-    monkeypatch.setattr(answer_generation, "chat_completion", _fake_completion)
-
-    result = service.PlainChatService().execute(
+    result = service.PlainChatService(answer_generator=AnswerGenerator(provider)).execute(
         PlainChatCommand(
             message="Hi",
             system_prompt="be terse",
@@ -95,18 +84,19 @@ def test_plain_service_honors_overrides(
         )
     )
 
-    assert captured["system_prompt"] == "be terse"
-    assert captured["context"] == "manual context"
-    assert captured["temperature"] == 0.7
+    call = provider.calls[0]
+    assert call["system_prompt"] == "be terse"
+    assert call["context"] == "manual context"
+    assert call["temperature"] == 0.7
     assert result.usage is None
 
 
-def test_rag_service_falls_back_without_chunks(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(retrieval, "retrieve_similar_chunks", lambda **_: [])
-
-    result = service.RagChatService(None).execute(  # type: ignore[arg-type]
+def test_rag_service_falls_back_without_chunks() -> None:
+    result = service.RagChatService(  # type: ignore[arg-type]
+        None,
+        retriever=FakeRetriever([]),
+        answer_generator=AnswerGenerator(FakeAnswerProvider()),
+    ).execute(
         RagChatCommand(
             message="anything",
             top_k=1,
@@ -120,29 +110,16 @@ def test_rag_service_falls_back_without_chunks(
     assert result.sources is None
 
 
-def test_rag_service_retrieves_builds_context_and_filters_sources(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_rag_service_retrieves_builds_context_and_filters_sources() -> None:
     chapter = _chapter()
-    captured: dict[str, Any] = {}
+    retriever = FakeRetriever([_chunk(chapter)])
+    provider = FakeAnswerProvider(text="answer")
 
-    def _fake_retrieve(**kwargs: Any) -> list[SimpleNamespace]:
-        captured["retrieve"] = kwargs
-        return [_chunk(chapter)]
-
-    def _fake_build(chunks: Any, **kwargs: Any) -> str:
-        captured["build_chunks"] = chunks
-        return "CTX"
-
-    def _fake_completion(**kwargs: Any) -> tuple[str, dict[str, int] | None]:
-        captured["completion"] = kwargs
-        return "answer", None
-
-    monkeypatch.setattr(retrieval, "retrieve_similar_chunks", _fake_retrieve)
-    monkeypatch.setattr(context_builder, "build_context_from_chunks", _fake_build)
-    monkeypatch.setattr(answer_generation, "chat_completion", _fake_completion)
-
-    result = service.RagChatService(db="DB").execute(  # type: ignore[arg-type]
+    result = service.RagChatService(  # type: ignore[arg-type]
+        "DB",
+        retriever=retriever,
+        answer_generator=AnswerGenerator(provider),
+    ).execute(
         RagChatCommand(
             message="Tell me about Prologue",
             top_k=3,
@@ -151,10 +128,10 @@ def test_rag_service_retrieves_builds_context_and_filters_sources(
         )
     )
 
-    assert captured["retrieve"]["db"] == "DB"
-    assert captured["retrieve"]["query"] == "Tell me about Prologue"
-    assert captured["retrieve"]["options"] == RetrievalOptions(top_k=3)
-    assert captured["completion"]["context"] == "CTX"
+    assert retriever.calls[0]["db"] == "DB"
+    assert retriever.calls[0]["query"] == "Tell me about Prologue"
+    assert retriever.calls[0]["options"] == RetrievalOptions(top_k=3)
+    assert "Prologue" in (provider.calls[0]["context"] or "")
     assert result.response == "answer"
     assert result.sources == [
         SourceReference(
@@ -167,23 +144,18 @@ def test_rag_service_retrieves_builds_context_and_filters_sources(
     ]
 
 
-def test_rag_service_deduplicates_sources_and_omits_unreferenced(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_rag_service_deduplicates_sources_and_omits_unreferenced() -> None:
     chapter = _chapter()
-    monkeypatch.setattr(
-        retrieval,
-        "retrieve_similar_chunks",
-        lambda **_: [_chunk(chapter), _chunk(chapter)],
-    )
-    monkeypatch.setattr(
-        context_builder, "build_context_from_chunks", lambda chunks, **_: "CTX"
-    )
-    monkeypatch.setattr(
-        answer_generation, "chat_completion", lambda **_: ("answer", None)
-    )
+    provider = FakeAnswerProvider(text="answer")
 
-    referenced = service.RagChatService("DB").execute(  # type: ignore[arg-type]
+    def _service() -> service.RagChatService:
+        return service.RagChatService(  # type: ignore[arg-type]
+            "DB",
+            retriever=FakeRetriever([_chunk(chapter), _chunk(chapter)]),
+            answer_generator=AnswerGenerator(provider),
+        )
+
+    referenced = _service().execute(
         RagChatCommand(
             message="Tell me about Prologue",
             top_k=2,
@@ -194,7 +166,7 @@ def test_rag_service_deduplicates_sources_and_omits_unreferenced(
     assert referenced.sources is not None
     assert len(referenced.sources) == 1
 
-    unreferenced = service.RagChatService("DB").execute(  # type: ignore[arg-type]
+    unreferenced = _service().execute(
         RagChatCommand(
             message="What should I do here?",
             top_k=2,

@@ -17,7 +17,9 @@ from app.application.chat import service
 from app.application.chat.commands import PlainChatCommand, RagChatCommand
 from app.application.chat.results import ChatResult, SourceReference, Usage
 from app.config import settings
-from app.services import answer_generation, retrieval
+from app.services.answer_generation import AnswerGenerator
+
+from fakes import FakeAnswerProvider, FakeRetriever
 
 
 def _chapter(**overrides: Any) -> SimpleNamespace:
@@ -82,19 +84,14 @@ def test_rag_chat_command_carries_explicit_fields() -> None:
     assert command.system_prompt == "be terse"
 
 
-def test_chat_plain_returns_typed_result_with_usage(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        answer_generation,
-        "chat_completion",
-        lambda **_: (
-            "answer",
-            {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
-        ),
+def test_chat_plain_returns_typed_result_with_usage() -> None:
+    provider = FakeAnswerProvider(
+        text="answer",
+        model=settings.openai_chat_model,
+        usage=Usage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
     )
 
-    result = service.PlainChatService().execute(
+    result = service.PlainChatService(answer_generator=AnswerGenerator(provider)).execute(
         PlainChatCommand(
             message="Hi",
             system_prompt=None,
@@ -114,16 +111,14 @@ def test_chat_plain_returns_typed_result_with_usage(
     assert result.sources is None
 
 
-def test_chat_rag_returns_typed_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_chat_rag_returns_typed_sources() -> None:
     chapter = _chapter()
-    monkeypatch.setattr(
-        retrieval, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
-    )
-    monkeypatch.setattr(
-        answer_generation, "chat_completion", lambda **_: ("answer", None)
-    )
 
-    result = service.RagChatService(None).execute(  # type: ignore[arg-type]
+    result = service.RagChatService(  # type: ignore[arg-type]
+        None,
+        retriever=FakeRetriever([_chunk(chapter)]),
+        answer_generator=AnswerGenerator(FakeAnswerProvider(text="answer")),
+    ).execute(
         RagChatCommand(
             message="Tell me about Prologue",
             top_k=1,
@@ -146,12 +141,12 @@ def test_chat_rag_returns_typed_sources(monkeypatch: pytest.MonkeyPatch) -> None
     ]
 
 
-def test_chat_rag_fallback_returns_none_usage(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(retrieval, "retrieve_similar_chunks", lambda **_: [])
-
-    result = service.RagChatService(None).execute(  # type: ignore[arg-type]
+def test_chat_rag_fallback_returns_none_usage() -> None:
+    result = service.RagChatService(  # type: ignore[arg-type]
+        None,
+        retriever=FakeRetriever([]),
+        answer_generator=AnswerGenerator(FakeAnswerProvider()),
+    ).execute(
         RagChatCommand(
             message="anything",
             top_k=1,
