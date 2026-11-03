@@ -17,6 +17,7 @@ from app.application.chat import service
 from app.application.chat.commands import PlainChatCommand, RagChatCommand
 from app.application.chat.results import ChatResult, SourceReference, Usage
 from app.config import settings
+from app.services import answer_generation, retrieval
 
 
 def _chapter(**overrides: Any) -> SimpleNamespace:
@@ -25,6 +26,9 @@ def _chapter(**overrides: Any) -> SimpleNamespace:
         "title": "Prologue",
         "infobox_title": "Prologue: A Beginning",
         "game": "Fire Emblem: The Blazing Blade",
+        "objective": None,
+        "units_gained": None,
+        "boss": None,
         "pageid": 101,
         "source_url": "https://example.test/prologue",
     }
@@ -82,7 +86,7 @@ def test_chat_plain_returns_typed_result_with_usage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        service,
+        answer_generation,
         "chat_completion",
         lambda **_: (
             "answer",
@@ -113,10 +117,10 @@ def test_chat_plain_returns_typed_result_with_usage(
 def test_chat_rag_returns_typed_sources(monkeypatch: pytest.MonkeyPatch) -> None:
     chapter = _chapter()
     monkeypatch.setattr(
-        service, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
+        retrieval, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
     )
     monkeypatch.setattr(
-        service, "chat_completion", lambda **_: ("answer", None)
+        answer_generation, "chat_completion", lambda **_: ("answer", None)
     )
 
     result = service.RagChatService(None).execute(  # type: ignore[arg-type]
@@ -145,7 +149,7 @@ def test_chat_rag_returns_typed_sources(monkeypatch: pytest.MonkeyPatch) -> None
 def test_chat_rag_fallback_returns_none_usage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(service, "retrieve_similar_chunks", lambda **_: [])
+    monkeypatch.setattr(retrieval, "retrieve_similar_chunks", lambda **_: [])
 
     result = service.RagChatService(None).execute(  # type: ignore[arg-type]
         RagChatCommand(

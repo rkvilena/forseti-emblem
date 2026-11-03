@@ -14,6 +14,8 @@ from app.application.chat import service
 from app.application.chat.commands import PlainChatCommand, RagChatCommand
 from app.application.chat.results import ChatResult, SourceReference, Usage
 from app.config import settings
+from app.services import answer_generation, context_builder, retrieval
+from app.services.retrieval import RetrievalOptions
 
 
 def _chapter(**overrides: Any) -> SimpleNamespace:
@@ -52,7 +54,7 @@ def test_plain_service_maps_usage_and_defaults_system_prompt(
             "total_tokens": 3,
         }
 
-    monkeypatch.setattr(service, "chat_completion", _fake_completion)
+    monkeypatch.setattr(answer_generation, "chat_completion", _fake_completion)
 
     result = service.PlainChatService().execute(
         PlainChatCommand(
@@ -68,7 +70,7 @@ def test_plain_service_maps_usage_and_defaults_system_prompt(
         model=settings.openai_chat_model,
         usage=Usage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
     )
-    assert captured["system_prompt"] == service.FIRE_EMBLEM_SYSTEM_PROMPT
+    assert captured["system_prompt"] == answer_generation.FIRE_EMBLEM_SYSTEM_PROMPT
     assert captured["user_message"] == "Hi"
     assert captured["context"] is None
 
@@ -82,7 +84,7 @@ def test_plain_service_honors_overrides(
         captured.update(kwargs)
         return "answer", None
 
-    monkeypatch.setattr(service, "chat_completion", _fake_completion)
+    monkeypatch.setattr(answer_generation, "chat_completion", _fake_completion)
 
     result = service.PlainChatService().execute(
         PlainChatCommand(
@@ -102,7 +104,7 @@ def test_plain_service_honors_overrides(
 def test_rag_service_falls_back_without_chunks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(service, "retrieve_similar_chunks", lambda **_: [])
+    monkeypatch.setattr(retrieval, "retrieve_similar_chunks", lambda **_: [])
 
     result = service.RagChatService(None).execute(  # type: ignore[arg-type]
         RagChatCommand(
@@ -136,9 +138,9 @@ def test_rag_service_retrieves_builds_context_and_filters_sources(
         captured["completion"] = kwargs
         return "answer", None
 
-    monkeypatch.setattr(service, "retrieve_similar_chunks", _fake_retrieve)
-    monkeypatch.setattr(service, "build_context_from_chunks", _fake_build)
-    monkeypatch.setattr(service, "chat_completion", _fake_completion)
+    monkeypatch.setattr(retrieval, "retrieve_similar_chunks", _fake_retrieve)
+    monkeypatch.setattr(context_builder, "build_context_from_chunks", _fake_build)
+    monkeypatch.setattr(answer_generation, "chat_completion", _fake_completion)
 
     result = service.RagChatService(db="DB").execute(  # type: ignore[arg-type]
         RagChatCommand(
@@ -149,11 +151,9 @@ def test_rag_service_retrieves_builds_context_and_filters_sources(
         )
     )
 
-    assert captured["retrieve"] == {
-        "db": "DB",
-        "query": "Tell me about Prologue",
-        "top_k": 3,
-    }
+    assert captured["retrieve"]["db"] == "DB"
+    assert captured["retrieve"]["query"] == "Tell me about Prologue"
+    assert captured["retrieve"]["options"] == RetrievalOptions(top_k=3)
     assert captured["completion"]["context"] == "CTX"
     assert result.response == "answer"
     assert result.sources == [
@@ -172,14 +172,16 @@ def test_rag_service_deduplicates_sources_and_omits_unreferenced(
 ) -> None:
     chapter = _chapter()
     monkeypatch.setattr(
-        service,
+        retrieval,
         "retrieve_similar_chunks",
         lambda **_: [_chunk(chapter), _chunk(chapter)],
     )
     monkeypatch.setattr(
-        service, "build_context_from_chunks", lambda chunks, **_: "CTX"
+        context_builder, "build_context_from_chunks", lambda chunks, **_: "CTX"
     )
-    monkeypatch.setattr(service, "chat_completion", lambda **_: ("answer", None))
+    monkeypatch.setattr(
+        answer_generation, "chat_completion", lambda **_: ("answer", None)
+    )
 
     referenced = service.RagChatService("DB").execute(  # type: ignore[arg-type]
         RagChatCommand(

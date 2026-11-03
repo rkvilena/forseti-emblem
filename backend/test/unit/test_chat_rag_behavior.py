@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from app.application.chat import service
 from app.application.chat.results import ChatResult
 from app.config import settings
+from app.services import answer_generation, retrieval
 
 
 def _rag_payload(message: str, top_k: int = 1) -> dict[str, object]:
@@ -32,6 +33,9 @@ def _chapter(**overrides: Any) -> SimpleNamespace:
         "title": "Prologue",
         "infobox_title": "Prologue: A Beginning",
         "game": "Fire Emblem: The Blazing Blade",
+        "objective": None,
+        "units_gained": None,
+        "boss": None,
         "pageid": 101,
         "source_url": "https://example.test/prologue",
     }
@@ -52,7 +56,7 @@ def _chunk(chapter: SimpleNamespace) -> SimpleNamespace:
 def test_rag_returns_fallback_when_no_chunks(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(service, "retrieve_similar_chunks", lambda **_: [])
+    monkeypatch.setattr(retrieval, "retrieve_similar_chunks", lambda **_: [])
 
     response = client.post("/chat/rag", json=_rag_payload("anything"))
 
@@ -87,10 +91,10 @@ def test_rag_returns_source_when_title_appears_in_message(
 ) -> None:
     chapter = _chapter()
     monkeypatch.setattr(
-        service, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
+        retrieval, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
     )
     monkeypatch.setattr(
-        service, "chat_completion", lambda **_: ("answer", None)
+        answer_generation, "chat_completion", lambda **_: ("answer", None)
     )
 
     response = client.post(
@@ -118,10 +122,10 @@ def test_rag_returns_source_when_game_appears_in_message(
         game="Fire Emblem",
     )
     monkeypatch.setattr(
-        service, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
+        retrieval, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
     )
     monkeypatch.setattr(
-        service, "chat_completion", lambda **_: ("answer", None)
+        answer_generation, "chat_completion", lambda **_: ("answer", None)
     )
 
     response = client.post(
@@ -138,10 +142,10 @@ def test_rag_omits_sources_when_no_reference_in_message(
 ) -> None:
     chapter = _chapter()
     monkeypatch.setattr(
-        service, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
+        retrieval, "retrieve_similar_chunks", lambda **_: [_chunk(chapter)]
     )
     monkeypatch.setattr(
-        service, "chat_completion", lambda **_: ("answer", None)
+        answer_generation, "chat_completion", lambda **_: ("answer", None)
     )
 
     response = client.post("/chat/rag", json=_rag_payload("What should I do here?"))

@@ -1,14 +1,16 @@
 """Chat application services (use cases).
 
 Each service owns one complete business operation -- answering a plain chat
-question or answering a retrieval-augmented question -- including the ordering
-of retrieval, context construction, answer generation, and result assembly.
+question or answering a retrieval-augmented question. The RAG service is a
+composition of named pipeline components (``app.services``): retrieval, context
+building, answer generation, and source selection. Each step has a single reason
+to change and is independently testable.
 
 The services read in business terms and import no FastAPI HTTP types
 (``Request``/``Response``/``HTTPException``); translating failures into HTTP
 responses is the route's job. For this phase the services still depend on the
-flat ``rag_service``/``openai_service`` helpers; provider ports and repositories
-arrive in later phases.
+flat ``openai_service`` helper behind the answer generator; provider ports and
+repositories arrive in later phases.
 """
 
 from __future__ import annotations
@@ -16,10 +18,12 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from ...config import settings
-from ...openai_service import FIRE_EMBLEM_SYSTEM_PROMPT, chat_completion
-from ...rag_service import build_context_from_chunks, retrieve_similar_chunks
+from ...services.answer_generation import AnswerGenerator
+from ...services.context_builder import ContextBuilder
+from ...services.retrieval import Retriever, RetrievalOptions
+from ...services.source_selector import SourceSelector
 from .commands import PlainChatCommand, RagChatCommand
-from .results import ChatResult, SourceReference, Usage
+from .results import ChatResult, Usage
 
 
 def _to_usage(raw: dict[str, int] | None) -> Usage | None:
@@ -38,16 +42,19 @@ def _to_usage(raw: dict[str, int] | None) -> Usage | None:
 class PlainChatService:
     """Use case: answer a chat question without retrieval."""
 
+    def __init__(self, answer_generator: AnswerGenerator | None = None) -> None:
+        self._answer_generator = answer_generator or AnswerGenerator()
+
     def execute(self, command: PlainChatCommand) -> ChatResult:
-        result, usage = chat_completion(
-            system_prompt=command.system_prompt or FIRE_EMBLEM_SYSTEM_PROMPT,
-            user_message=command.message,
+        text, usage = self._answer_generator.generate(
+            system_prompt=command.system_prompt,
+            question=command.message,
             context=command.context,
             temperature=command.temperature,
         )
 
         return ChatResult(
-            response=result,
+            response=text,
             model=settings.openai_chat_model,
             usage=_to_usage(usage),
         )
@@ -56,12 +63,25 @@ class PlainChatService:
 class RagChatService:
     """Use case: answer a chat question augmented with retrieved chunks."""
 
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+        retriever: Retriever | None = None,
+        context_builder: ContextBuilder | None = None,
+        answer_generator: AnswerGenerator | None = None,
+        source_selector: SourceSelector | None = None,
+    ) -> None:
         self._db = db
+        self._retriever = retriever or Retriever()
+        self._context_builder = context_builder or ContextBuilder()
+        self._answer_generator = answer_generator or AnswerGenerator()
+        self._source_selector = source_selector or SourceSelector()
 
     def execute(self, command: RagChatCommand) -> ChatResult:
-        chunks = retrieve_similar_chunks(
-            db=self._db, query=command.message, top_k=command.top_k
+        chunks = self._retriever.retrieve(
+            db=self._db,
+            query=command.message,
+            options=RetrievalOptions(top_k=command.top_k),
         )
 
         if not chunks:
@@ -71,61 +91,24 @@ class RagChatService:
                 usage=None,
             )
 
-        context = build_context_from_chunks(chunks)
+        context = self._context_builder.build(chunks)
 
-        result, usage = chat_completion(
-            system_prompt=command.system_prompt or FIRE_EMBLEM_SYSTEM_PROMPT,
-            user_message=command.message,
+        text, usage = self._answer_generator.generate(
+            system_prompt=command.system_prompt,
+            question=command.message,
             context=context,
             temperature=command.temperature,
         )
 
-        sources: list[SourceReference] = []
-        seen_chapter_ids: set[int] = set()
-
-        for chunk in chunks:
-            chapter = getattr(chunk, "chapter", None)
-            if chapter is None:
-                continue
-
-            chapter_id = getattr(chapter, "id", None)
-            if chapter_id is None or chapter_id in seen_chapter_ids:
-                continue
-
-            seen_chapter_ids.add(chapter_id)
-
-            sources.append(
-                SourceReference(
-                    title=getattr(chapter, "title", ""),
-                    infobox_title=getattr(chapter, "infobox_title", None),
-                    game=getattr(chapter, "game", None),
-                    pageid=getattr(chapter, "pageid", 0),
-                    source_url=getattr(chapter, "source_url", None),
-                )
-            )
-
-        message_lower = command.message.lower()
-
-        filtered_sources: list[SourceReference] = []
-        for source in sources:
-            match = False
-            for value in (source.infobox_title, source.title):
-                if isinstance(value, str) and value and value.lower() in message_lower:
-                    match = True
-                    break
-
-            if not match:
-                if isinstance(source.game, str) and source.game:
-                    cleaned_game = source.game.strip("[]")
-                    if cleaned_game.lower() in message_lower:
-                        match = True
-
-            if match:
-                filtered_sources.append(source)
+        sources = self._source_selector.select(
+            chunks=chunks,
+            question=command.message,
+        )
 
         return ChatResult(
-            response=result,
+            response=text,
             model=settings.openai_chat_model,
             usage=_to_usage(usage),
-            sources=filtered_sources or None,
+            sources=sources or None,
         )
+
