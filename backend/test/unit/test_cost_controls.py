@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.application.chat.results import ChatResult
 from app.config import settings
 from app.routes import chat as chat_routes
 from app import rate_limit
@@ -75,10 +76,10 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     settings.session_cooldown_duration_seconds = 60
 
     def _fake_chat_rag(*args, **kwargs):  # type: ignore[no-untyped-def]
-        return {"response": "ok", "model": "test", "usage": None}
+        return ChatResult(response="ok", model="test", usage=None)
 
     def _fake_chat_plain(*args, **kwargs):  # type: ignore[no-untyped-def]
-        return {"response": "ok", "model": "test", "usage": None}
+        return ChatResult(response="ok", model="test", usage=None)
 
     chat_routes.chat_controller.chat_rag = _fake_chat_rag  # type: ignore[assignment]
     chat_routes.chat_controller.chat_plain = _fake_chat_plain  # type: ignore[assignment]
@@ -135,9 +136,9 @@ def test_top_k_clamped_to_max(
 ) -> None:
     captured = {}
 
-    def _capture_chat_rag(*, db, message, top_k, temperature, system_prompt):  # type: ignore[no-untyped-def]
-        captured["top_k"] = top_k
-        return {"response": "ok", "model": "test", "usage": None}
+    def _capture_chat_rag(*, db, command):  # type: ignore[no-untyped-def]
+        captured["top_k"] = command.top_k
+        return ChatResult(response="ok", model="test", usage=None)
 
     monkeypatch.setattr(chat_routes.chat_controller, "chat_rag", _capture_chat_rag)
 

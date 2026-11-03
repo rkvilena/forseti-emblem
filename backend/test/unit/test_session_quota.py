@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.application.chat.results import ChatResult
 from app.config import settings
 from app import rate_limit
 from app.routes import chat as chat_routes
@@ -59,11 +60,11 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     settings.turnstile_enabled = False
 
     def _fake_chat_rag(*args, **kwargs):  # type: ignore[no-untyped-def]
-        return {
-            "response": "ok",
-            "model": "test-model",
-            "usage": None,
-        }
+        return ChatResult(
+            response="ok",
+            model="test-model",
+            usage=None,
+        )
 
     chat_routes.chat_controller.chat_rag = _fake_chat_rag  # type: ignore[assignment]
 

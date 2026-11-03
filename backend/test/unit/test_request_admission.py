@@ -12,6 +12,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from app.application.chat.results import ChatResult
 from app.config import settings
 from app.controllers import chat_controller
 from app.security import request_admission
@@ -244,7 +245,7 @@ def test_first_rag_request_sets_single_session_cookie(
     monkeypatch.setattr(
         chat_controller,
         "chat_rag",
-        lambda **_: {"response": "ok", "model": "test", "usage": None},
+        lambda **_: ChatResult(response="ok", model="test", usage=None),
     )
 
     response = client.post("/chat/rag", json=_rag_payload("Hello"))

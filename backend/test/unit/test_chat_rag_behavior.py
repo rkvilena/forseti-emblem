@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.application.chat.results import ChatResult
 from app.config import settings
 from app.controllers import chat_controller
 
@@ -67,16 +68,9 @@ def test_rag_clamps_top_k_above_max(
 ) -> None:
     captured: dict[str, int] = {}
 
-    def _capture_chat_rag(
-        *,
-        db: Any,
-        message: str,
-        top_k: int,
-        temperature: float,
-        system_prompt: str | None,
-    ) -> dict[str, Any]:
-        captured["top_k"] = top_k
-        return {"response": "ok", "model": "test", "usage": None}
+    def _capture_chat_rag(*, db: Any, command: Any) -> ChatResult:
+        captured["top_k"] = command.top_k
+        return ChatResult(response="ok", model="test", usage=None)
 
     monkeypatch.setattr(chat_controller, "chat_rag", _capture_chat_rag)
 
