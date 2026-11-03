@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 import redis
-from fastapi import HTTPException, Request, Response, status
+from fastapi import HTTPException, status
 
 from .config import settings
 
@@ -94,29 +94,12 @@ def enforce_ip_rate_limit(ip: Optional[str], *, scope: str = "chat") -> None:
         logger.error("IP rate limiting failed: %s", exc)
 
 
-def enforce_session_quota(request: Request, response: Response, *, scope: str) -> None:
+def enforce_session_quota(session_id: str, *, scope: str) -> None:
     client = get_redis_client()
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Rate limiting backend is unavailable",
-        )
-
-    session_id = request.cookies.get(settings.session_cookie_name)
-    if not session_id:
-        import secrets
-
-        session_id = secrets.token_urlsafe(18)
-        max_age = max(1, int(settings.session_cookie_ttl_seconds))
-        secure = bool(settings.is_production)
-        response.set_cookie(
-            key=settings.session_cookie_name,
-            value=session_id,
-            max_age=max_age,
-            httponly=True,
-            secure=secure,
-            samesite="lax",
-            path="/",
         )
 
     long_window = settings.rate_limit_long_window_seconds
@@ -141,31 +124,12 @@ def enforce_session_quota(request: Request, response: Response, *, scope: str) -
         logger.error("Session rate limiting failed: %s", exc)
 
 
-def enforce_session_cooldown(
-    request: Request, response: Response, *, scope: str
-) -> None:
+def enforce_session_cooldown(session_id: str, *, scope: str) -> None:
     client = get_redis_client()
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Rate limiting backend is unavailable",
-        )
-
-    session_id = request.cookies.get(settings.session_cookie_name)
-    if not session_id:
-        import secrets
-
-        session_id = secrets.token_urlsafe(18)
-        max_age = max(1, int(settings.session_cookie_ttl_seconds))
-        secure = bool(settings.is_production)
-        response.set_cookie(
-            key=settings.session_cookie_name,
-            value=session_id,
-            max_age=max_age,
-            httponly=True,
-            secure=secure,
-            samesite="lax",
-            path="/",
         )
 
     window = settings.session_cooldown_window_seconds
