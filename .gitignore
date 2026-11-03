@@ -1,4 +1,4 @@
-backend/.venv
+.venv
 blueprint/
 memory-bank/
 randomfile/
