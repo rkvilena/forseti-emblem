@@ -7,6 +7,7 @@ from ..application.ingestion.service import ChapterIngestionService
 from ..application.ports.wiki import WikiClient
 from ..chapter_ingest import DuplicateChapterError
 from ..infrastructure.mediawiki import MediaWikiWikiClient
+from ..infrastructure.persistence.repository import ChapterRepository
 from ..models import Chapter
 from ..parsers import (
     extract_tables_as_json,
@@ -199,11 +200,9 @@ def _normalize_game_name(raw: str | None) -> str | None:
 
 
 def list_documented_chapters(db: Session) -> Dict[str, Any]:
-    chapters = (
-        db.query(Chapter)
-        .order_by(Chapter.game.is_(None), Chapter.game, Chapter.id)
-        .all()
-    )
+    # The repository shapes the query; grouping by game and normalizing the
+    # game label is presentation logic and stays here.
+    chapters = ChapterRepository(db).list_documented_chapters()
 
     groups: dict[str | None, list[Chapter]] = {}
     for chapter in chapters:

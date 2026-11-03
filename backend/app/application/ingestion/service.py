@@ -6,8 +6,8 @@ insert-or-replace decision, and the single commit/rollback boundary. Both
 ``ingest`` and ``reingest`` share the same draft building, enrichment, and
 persistence code, so a chapter can never be created one way and updated another.
 
-Repositories are intentionally deferred to a later phase; the service talks to
-the SQLAlchemy ``Session`` directly.
+Persistence mechanics live behind ``ChapterRepository``; this service decides
+*when* to look up, save, or replace and what those operations mean.
 """
 
 from __future__ import annotations
@@ -19,7 +19,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ...chapter_ingest import DuplicateChapterError, build_chapter_records_from_wikitext
-from ...models import Chapter, ChapterChunk
+from ...infrastructure.persistence.repository import ChapterRepository
+from ...models import Chapter
 from ..ports.embeddings import EmbeddingProvider
 from .models import ChapterDraft, ChunkDraft
 
@@ -36,6 +37,7 @@ class ChapterIngestionService:
         embedding_provider: EmbeddingProvider | None = None,
     ) -> None:
         self._db = db
+        self._repository = ChapterRepository(db)
         self._embedding_provider = embedding_provider
 
     def ingest(
@@ -52,7 +54,7 @@ class ChapterIngestionService:
         # Check duplicates before embedding so a rejected ingest costs no calls.
         self._ensure_not_duplicate(draft)
         draft = self._enrich_draft(draft, generate_embeddings)
-        return self._persist_new(draft)
+        return self._repository.save_new_chapter(draft)
 
     def reingest(
         self,
@@ -64,7 +66,7 @@ class ChapterIngestionService:
     ) -> Chapter:
         """Replace an existing chapter's metadata and chunks, or insert it."""
 
-        existing = self._find_by_pageid(pageid)
+        existing = self._repository.find_by_page_id(pageid)
         if existing is None:
             return self.ingest(
                 pageid=pageid,
@@ -75,7 +77,7 @@ class ChapterIngestionService:
 
         draft = build_chapter_records_from_wikitext(pageid, title, chapter_data)
         draft = self._enrich_draft(draft, generate_embeddings)
-        return self._persist_replace(existing, draft)
+        return self._repository.replace_chapter_with_draft(existing.id, draft)
 
     # ------------------------------------------------------------------ #
     # Draft building / enrichment (outside the transaction)
@@ -130,99 +132,19 @@ class ChapterIngestionService:
         return OpenAIEmbeddingProvider()
 
     # ------------------------------------------------------------------ #
-    # Persistence (inside the transaction)
+    # Duplicate policy (the repository owns the lookup; this decides meaning)
     # ------------------------------------------------------------------ #
 
     def _ensure_not_duplicate(self, draft: ChapterDraft) -> None:
         lookup_title = draft.infobox_title or draft.title
 
-        query = self._db.query(Chapter).filter(Chapter.title == lookup_title)
-        if draft.game is not None:
-            query = query.filter(Chapter.game == draft.game)
-
-        if query.first() is not None:
+        existing = self._repository.find_by_title_and_game(
+            lookup_title,
+            draft.game,
+        )
+        if existing is not None:
             raise DuplicateChapterError(
                 f"Chapter '{lookup_title}' for game '{draft.game}' already exists",
                 chapter_title=lookup_title,
                 game=draft.game,
             )
-
-    def _find_by_pageid(self, pageid: int) -> Chapter | None:
-        return self._db.query(Chapter).filter(Chapter.pageid == pageid).first()
-
-    def _persist_new(self, draft: ChapterDraft) -> Chapter:
-        chapter = _to_chapter(draft)
-        for chunk in _to_chunks(draft):
-            chunk.chapter = chapter
-
-        return self._commit(
-            chapter,
-            f"Ingested chapter: {draft.title} with {len(draft.chunks)} chunks",
-        )
-
-    def _persist_replace(self, existing: Chapter, draft: ChapterDraft) -> Chapter:
-        # Replacing through the relationship lets the delete-orphan cascade remove
-        # the old chunks in the same transaction as the new inserts. Flushing
-        # after the clear sends the deletes first, so the (chapter, kind, index)
-        # unique constraint does not collide with the replacements.
-        existing.chunks.clear()
-        self._db.flush()
-        _apply_draft(existing, draft)
-        existing.chunks.extend(_to_chunks(draft))
-
-        return self._commit(
-            existing,
-            f"Reingested chapter: {draft.title} with {len(draft.chunks)} chunks",
-        )
-
-    def _commit(self, chapter: Chapter, message: str) -> Chapter:
-        try:
-            self._db.add(chapter)
-            self._db.commit()
-            self._db.refresh(chapter)
-        except Exception:
-            self._db.rollback()
-            raise
-
-        logger.info(message)
-        return chapter
-
-
-def _to_chapter(draft: ChapterDraft) -> Chapter:
-    return Chapter(
-        pageid=draft.pageid,
-        title=draft.title,
-        infobox_title=draft.infobox_title,
-        game=draft.game,
-        objective=draft.objective,
-        units_allowed=draft.units_allowed,
-        units_gained=draft.units_gained,
-        boss=draft.boss,
-        source_url=draft.source_url,
-        raw_infobox=draft.raw_infobox,
-    )
-
-
-def _to_chunks(draft: ChapterDraft) -> list[ChapterChunk]:
-    return [
-        ChapterChunk(
-            section_title=chunk.section_title,
-            kind=chunk.kind,
-            chunk_index=chunk.chunk_index,
-            text=chunk.text,
-            embedding=chunk.embedding,
-        )
-        for chunk in draft.chunks
-    ]
-
-
-def _apply_draft(chapter: Chapter, draft: ChapterDraft) -> None:
-    chapter.title = draft.title
-    chapter.infobox_title = draft.infobox_title
-    chapter.game = draft.game
-    chapter.objective = draft.objective
-    chapter.units_allowed = draft.units_allowed
-    chapter.units_gained = draft.units_gained
-    chapter.boss = draft.boss
-    chapter.raw_infobox = draft.raw_infobox
-    chapter.source_url = draft.source_url

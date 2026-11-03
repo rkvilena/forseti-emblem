@@ -1,17 +1,19 @@
 """Retrieval component of the RAG pipeline.
 
-Owns query embedding (through the ``EmbeddingProvider`` port) and the pgvector
-similarity query, so callers never build vector SQL directly and the use case
-does not need to know how the query vector is produced.
+Owns query embedding (through the ``EmbeddingProvider`` port) and delegates the
+pgvector similarity query to the chapter repository, so callers never build
+vector SQL directly and the use case does not need to know how the query vector
+is produced or how chunks are fetched.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from ..application.ports.embeddings import EmbeddingProvider
+from ..infrastructure.persistence.repository import ChapterRepository
 from ..models import ChapterChunk
 
 
@@ -51,15 +53,9 @@ class Retriever:
 
         query_embedding = self._embedding_provider.embed(query)
 
-        # cosine_distance() is provided by pgvector's SQLAlchemy integration.
-        # Lower distance = more similar.
-        return (
-            db.query(ChapterChunk)
-            .options(selectinload(ChapterChunk.chapter))
-            .filter(ChapterChunk.embedding.isnot(None))
-            .order_by(ChapterChunk.embedding.cosine_distance(query_embedding))
-            .limit(options.top_k)
-            .all()
+        return ChapterRepository(db).retrieve_similar_chunks(
+            query_embedding,
+            options,
         )
 
 
