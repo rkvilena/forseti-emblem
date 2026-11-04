@@ -30,6 +30,7 @@ export interface ChapterSummary {
   title: string;
   infobox_title: string | null;
   game: string | null;
+  embedding_status: "pending" | "searchable";
 }
 
 export interface GameChaptersGroup {

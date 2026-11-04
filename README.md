@@ -140,13 +140,45 @@ docker compose -f infrastructure/compose/local.dev.yml up --build
 | API docs | http://localhost:8000/docs (auth-protected when enabled) |
 | Postgres | localhost:5432 (`postgres`/`postgres`, db `forsetiemblem`) |
 
-## Resetting the Database
+## Database Operations
+
+The `database/` folder holds three helper scripts (all run from the repo root, see [database/README.md](database/README.md)):
+
+| Script | Purpose | Destructive? | Target |
+| ------ | ------- | ------------ | ------ |
+| `database/db-dump.sh` | Create a snapshot (backup/export) | No | `local` or `prod` |
+| `database/db-restore.sh` | Restore a snapshot | **Yes** | `local` only |
+| `database/db-reset.sh` | Empty the database | **Yes** | `local` only |
+
+### Back up
 
 ```bash
-bash resetdb.sh
+bash database/db-dump.sh local   # local Docker Postgres container
+bash database/db-dump.sh prod    # production DB via DATABASE_URL
 ```
 
-> **Warning:** this drops and recreates the database. All ingested chapters are lost. It requires the Postgres container to be running. Afterwards, restart the backend so migrations recreate the tables, and re-ingest chapters.
+Writes a PostgreSQL custom-format archive (schema + chapters + chunks + embeddings + Alembic version) to `backups/local/` or `backups/prod/`. Dumps stay local and are never uploaded.
+
+- **local** runs `pg_dump` inside the running `forsetiemblem-db` container.
+- **prod** runs `pg_dump` from a temporary `postgres:16` client container against `DATABASE_URL`, read from `backend/.env.prod` or the environment. The `postgresql+psycopg://` prefix is normalized automatically and the password is never printed.
+
+### Restore
+
+```bash
+bash database/db-restore.sh backups/local/forsetiemblem-local-YYYYMMDD-HHMMSS.dump
+```
+
+Restore is **local-only** by design. It drops and recreates the local database, re-adds pgvector, then loads the archive.
+
+### Reset
+
+```bash
+bash database/db-reset.sh
+```
+
+> **Warning:** `db-restore.sh` and `db-reset.sh` drop and recreate the database — all ingested chapters are lost. They require the Postgres container to be running. Afterwards, restart the backend so migrations recreate the tables.
+
+`backups/` is git-ignored. Inspect a dump with `pg_restore --list <file>`.
 
 ## Documentation
 

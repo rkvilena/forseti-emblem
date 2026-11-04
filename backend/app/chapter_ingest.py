@@ -1,38 +1,30 @@
 """
-Chapter ingestion module.
+Chapter record building.
 
-Functions to build database records from parsed wikitext data
-and handle the full ingestion pipeline including embeddings.
+Pure transforms that turn parsed wikitext into draft value objects
+(``ChapterDraft``/``ChunkDraft``). They perform no database queries, no OpenAI
+calls, and no commits; persistence and transaction handling live in the
+ingestion use case (``app.application.ingestion.service``).
 """
 
 import logging
 from typing import Any
 
-from sqlalchemy.orm import Session
-
-from .models import Chapter, ChapterChunk
-from .openai_service import create_embeddings_batch
+from .application.ingestion.models import ChapterDraft, ChunkDraft
 
 
 logger = logging.getLogger(__name__)
-
-
-class DuplicateChapterError(Exception):
-    """Raised when an equivalent chapter already exists in the database."""
-
-    def __init__(self, message: str, chapter_title: str | None, game: str | None):
-        super().__init__(message)
-        self.chapter_title = chapter_title
-        self.game = game
 
 
 def build_chapter_records_from_wikitext(
     pageid: int,
     title: str,
     chapter_data: dict[str, Any],
-) -> tuple[Chapter, list[ChapterChunk]]:
+) -> ChapterDraft:
     """
-    Build Chapter and ChapterChunk records from parsed wikitext data.
+    Build a ChapterDraft from parsed wikitext data.
+
+    Pure transform: no database access, no OpenAI calls, no commit.
 
     Args:
         pageid: MediaWiki page ID
@@ -40,7 +32,7 @@ def build_chapter_records_from_wikitext(
         chapter_data: Parsed chapter data from parse_chapter_wikitext()
 
     Returns:
-        Tuple of (Chapter record, list of ChapterChunk records)
+        A ChapterDraft describing the chapter and its chunks
     """
     infobox = chapter_data.get("infobox") or {}
     infobox_title = infobox.get("title")
@@ -76,27 +68,14 @@ def build_chapter_records_from_wikitext(
     url_title = title.replace(" ", "_")
     source_url = f"https://fireemblem.fandom.com/wiki/{url_title}"
 
-    chapter_row = Chapter(
-        pageid=pageid,
-        title=title,
-        infobox_title=infobox_title,
-        game=game,
-        objective=objective,
-        units_allowed=units_allowed,
-        units_gained=units_gained,
-        boss=boss,
-        source_url=source_url,
-        raw_infobox=infobox,
-    )
-
-    chunks: list[ChapterChunk] = []
+    chunks: list[ChunkDraft] = []
     chunk_index = 0
 
     # Add summary as first chunk if available
     summary = chapter_data.get("summary")
     if summary:
         chunks.append(
-            ChapterChunk(
+            ChunkDraft(
                 section_title=None,
                 kind="summary",
                 chunk_index=chunk_index,
@@ -109,7 +88,7 @@ def build_chapter_records_from_wikitext(
     for key, value in field_map.items():
         text = f"{key}: {value}"
         chunks.append(
-            ChapterChunk(
+            ChunkDraft(
                 section_title=None,
                 kind="infobox",
                 chunk_index=chunk_index,
@@ -127,7 +106,7 @@ def build_chapter_records_from_wikitext(
             continue
         for line in lines:
             chunks.append(
-                ChapterChunk(
+                ChunkDraft(
                     section_title=section_title,
                     kind="section",
                     chunk_index=chunk_index,
@@ -136,143 +115,27 @@ def build_chapter_records_from_wikitext(
             )
             chunk_index += 1
 
-    return chapter_row, chunks
-
-
-def ingest_chapter_to_db(
-    db: Session,
-    pageid: int,
-    title: str,
-    chapter_data: dict[str, Any],
-    generate_embeddings: bool = True,
-) -> Chapter:
-    """
-    Ingest a chapter into the database.
-
-    Creates or updates the Chapter and its ChapterChunks.
-    Optionally generates embeddings for each chunk.
-
-    Args:
-        db: Database session
-        pageid: MediaWiki page ID
-        title: Page title
-        chapter_data: Parsed chapter data
-        generate_embeddings: Whether to generate OpenAI embeddings
-
-    Returns:
-        The created Chapter record
-    """
-    # Build records from parsed chapter data
-    chapter_row, chunks = build_chapter_records_from_wikitext(
-        pageid, title, chapter_data
+    return ChapterDraft(
+        pageid=pageid,
+        title=title,
+        infobox_title=infobox_title,
+        game=game,
+        objective=objective,
+        units_allowed=units_allowed,
+        units_gained=units_gained,
+        boss=boss,
+        source_url=source_url,
+        raw_infobox=infobox,
+        chunks=chunks,
     )
 
-    # Prevent duplicate chapters based on parsed chapter title and game
-    lookup_title = chapter_row.infobox_title or chapter_row.title
 
-    query = db.query(Chapter).filter(Chapter.title == lookup_title)
-    if chapter_row.game is not None:
-        query = query.filter(Chapter.game == chapter_row.game)
-
-    existing = query.first()
-    if existing is not None:
-        raise DuplicateChapterError(
-            f"Chapter '{lookup_title}' for game '{chapter_row.game}' already exists",
-            chapter_title=lookup_title,
-            game=chapter_row.game,
-        )
-
-    # Generate embeddings if requested
-    if generate_embeddings and chunks:
-        logger.info(f"Generating embeddings for {len(chunks)} chunks...")
-        try:
-            texts = [chunk.text for chunk in chunks]
-            embeddings = create_embeddings_batch(texts)
-            for chunk, embedding in zip(chunks, embeddings):
-                chunk.embedding = embedding
-            logger.info(f"Generated {len(embeddings)} embeddings")
-        except Exception as e:
-            logger.warning(
-                f"Failed to generate embeddings: {e}. Chunks will be stored without embeddings."
-            )
-
-    # Associate chunks with chapter
-    for chunk in chunks:
-        chunk.chapter = chapter_row
-
-    # Add to database
-    db.add(chapter_row)
-    db.commit()
-    db.refresh(chapter_row)
-
-    logger.info(f"Ingested chapter: {title} with {len(chunks)} chunks")
-    return chapter_row
-
-
-def reingest_chapter_to_db(
-    db: Session,
-    pageid: int,
-    title: str,
-    chapter_data: dict[str, Any],
-    generate_embeddings: bool = True,
-) -> Chapter:
-    chapter_row, chunks = build_chapter_records_from_wikitext(
-        pageid, title, chapter_data
-    )
-
-    existing = db.query(Chapter).filter(Chapter.pageid == pageid).first()
-
-    if existing is None:
-        return ingest_chapter_to_db(
-            db=db,
-            pageid=pageid,
-            title=title,
-            chapter_data=chapter_data,
-            generate_embeddings=generate_embeddings,
-        )
-
-    if generate_embeddings and chunks:
-        logger.info(f"Regenerating embeddings for {len(chunks)} chunks...")
-        try:
-            texts = [chunk.text for chunk in chunks]
-            embeddings = create_embeddings_batch(texts)
-            for chunk, embedding in zip(chunks, embeddings):
-                chunk.embedding = embedding
-            logger.info(f"Generated {len(embeddings)} embeddings")
-        except Exception as e:
-            logger.warning(
-                f"Failed to generate embeddings during reingest: {e}. Chunks will be stored without embeddings."
-            )
-
-    db.query(ChapterChunk).filter(ChapterChunk.chapter_id == existing.id).delete()
-
-    existing.title = chapter_row.title
-    existing.infobox_title = chapter_row.infobox_title
-    existing.game = chapter_row.game
-    existing.objective = chapter_row.objective
-    existing.units_allowed = chapter_row.units_allowed
-    existing.units_gained = chapter_row.units_gained
-    existing.boss = chapter_row.boss
-    existing.raw_infobox = chapter_row.raw_infobox
-    existing.source_url = chapter_row.source_url
-
-    for chunk in chunks:
-        chunk.chapter = existing
-
-    db.add(existing)
-    db.commit()
-    db.refresh(existing)
-
-    logger.info(f"Reingested chapter: {title} with {len(chunks)} chunks")
-    return existing
-
-
-# Keep old function for backward compatibility
+# Kept for backward compatibility; returns a ChapterDraft like the function above.
 def build_chapter_records(
     pageid: int,
     title: str,
     chapter: dict[str, Any],
-) -> tuple[Chapter, list[ChapterChunk]]:
+) -> ChapterDraft:
     """
     Legacy function - use build_chapter_records_from_wikitext instead.
 

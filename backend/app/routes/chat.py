@@ -1,70 +1,86 @@
-from typing import Any
+from fastapi import APIRouter, Depends, Request, Response
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlalchemy.orm import Session
-
-from ..config import settings
-from ..db import get_db
-from ..controllers import chat_controller
+from ..application.chat.commands import PlainChatCommand, RagChatCommand
+from ..application.chat.dependencies import (
+    get_plain_chat_service,
+    get_rag_chat_service,
+)
+from ..application.chat.results import ChatResult
+from ..application.chat.service import PlainChatService, RagChatService
+from ..security.request_admission import RequestContext, admit_chat_request
 from ..security.turnstile import verify_turnstile_token
-from ..schemas.chat import ChatRequest, ChatResponse, RagChatRequest
-from ..rate_limit import (
-    enforce_ip_rate_limit,
-    enforce_session_quota,
-    enforce_session_cooldown,
+from ..schemas.chat import (
+    ChatRequest,
+    ChatResponse,
+    ChatUsage,
+    RagChatRequest,
+    SourceReference,
 )
 
 
 router = APIRouter(tags=["chat"])
 
 
+def _to_chat_response(result: ChatResult) -> ChatResponse:
+    """Map the application ``ChatResult`` onto the public HTTP response model."""
+
+    usage: ChatUsage | None = None
+    if result.usage is not None:
+        usage = ChatUsage(
+            prompt_tokens=result.usage.prompt_tokens,
+            completion_tokens=result.usage.completion_tokens,
+            total_tokens=result.usage.total_tokens,
+        )
+
+    sources: list[SourceReference] | None = None
+    if result.sources is not None:
+        sources = [
+            SourceReference(
+                title=source.title,
+                infobox_title=source.infobox_title,
+                game=source.game,
+                pageid=source.pageid,
+                source_url=source.source_url,
+            )
+            for source in result.sources
+        ]
+
+    return ChatResponse(
+        response=result.response,
+        model=result.model,
+        usage=usage,
+        sources=sources,
+    )
+
+
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, request: Request, response: Response) -> Any:
-    if not req.message.strip():
-        raise HTTPException(status_code=400, detail="message must not be empty")
+def chat(
+    req: ChatRequest,
+    request: Request,
+    response: Response,
+    service: PlainChatService = Depends(get_plain_chat_service),
+) -> ChatResponse:
+    context = RequestContext.from_request(request, response)
+    admit_chat_request(
+        context,
+        scope="chat",
+        message=req.message,
+        turnstile_token=req.turnstile_token,
+        verify_turnstile=verify_turnstile_token,
+    )
 
-    if len(req.message) > settings.request_max_chars:
-        raise HTTPException(
-            status_code=400,
-            detail=f"message must be at most {settings.request_max_chars} characters",
-        )
+    command = PlainChatCommand(
+        message=req.message,
+        system_prompt=req.system_prompt,
+        context=req.context,
+        temperature=req.temperature,
+    )
 
-    client_ip = request.client.host if request.client else None
-    enforce_ip_rate_limit(client_ip, scope="chat")
-    enforce_session_quota(request, response, scope="chat")
-    enforce_session_cooldown(request, response, scope="chat")
+    # Provider/configuration failures surface as application exceptions and are
+    # translated once by the centralized handlers in ``app.api.exception_handlers``.
+    result = service.execute(command)
 
-    if settings.turnstile_enabled:
-        if not req.turnstile_token:
-            raise HTTPException(status_code=400, detail="turnstile token is required")
-
-        ok, error = verify_turnstile_token(
-            token=req.turnstile_token,
-            remote_ip=request.client.host if request.client else None,
-        )
-        if not ok:
-            status_code = (
-                500 if error == "turnstile_secret_key is not configured" else 403
-            )
-            raise HTTPException(
-                status_code=status_code,
-                detail=error or "Turnstile verification failed",
-            )
-
-    try:
-        result = chat_controller.chat_plain(
-            message=req.message,
-            system_prompt=req.system_prompt,
-            context=req.context,
-            temperature=req.temperature,
-        )
-    except ValueError as e:
-        # Typically: OPENAI_API_KEY not set
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OpenAI request failed: {e}")
-
-    return ChatResponse(**result)
+    return _to_chat_response(result)
 
 
 @router.post("/chat/rag", response_model=ChatResponse)
@@ -72,55 +88,28 @@ def chat_rag(
     req: RagChatRequest,
     request: Request,
     response: Response,
-    db: Session = Depends(get_db),
-) -> Any:
+    service: RagChatService = Depends(get_rag_chat_service),
+) -> ChatResponse:
     """RAG chat: embeds the question, retrieves similar DB chunks, and asks OpenAI with that context."""
-    if not req.message.strip():
-        raise HTTPException(status_code=400, detail="message must not be empty")
+    context = RequestContext.from_request(request, response)
+    admitted_top_k = admit_chat_request(
+        context,
+        scope="chat_rag",
+        message=req.message,
+        turnstile_token=req.turnstile_token,
+        verify_turnstile=verify_turnstile_token,
+        top_k=req.top_k,
+    )
 
-    if len(req.message) > settings.request_max_chars:
-        raise HTTPException(
-            status_code=400,
-            detail=f"message must be at most {settings.request_max_chars} characters",
-        )
+    command = RagChatCommand(
+        message=req.message,
+        top_k=req.top_k if admitted_top_k is None else admitted_top_k,
+        temperature=req.temperature,
+        system_prompt=req.system_prompt,
+    )
 
-    if req.top_k > settings.rag_top_k_max:
-        req.top_k = settings.rag_top_k_max
+    # Provider/configuration failures surface as application exceptions and are
+    # translated once by the centralized handlers in ``app.api.exception_handlers``.
+    result = service.execute(command)
 
-    client_ip = request.client.host if request.client else None
-    enforce_ip_rate_limit(client_ip, scope="chat_rag")
-    enforce_session_quota(request, response, scope="chat_rag")
-    enforce_session_cooldown(request, response, scope="chat_rag")
-
-    if settings.turnstile_enabled:
-        if not req.turnstile_token:
-            raise HTTPException(status_code=400, detail="turnstile token is required")
-
-        ok, error = verify_turnstile_token(
-            token=req.turnstile_token,
-            remote_ip=request.client.host if request.client else None,
-        )
-        if not ok:
-            status_code = (
-                500 if error == "turnstile_secret_key is not configured" else 403
-            )
-            raise HTTPException(
-                status_code=status_code,
-                detail=error or "Turnstile verification failed",
-            )
-
-    try:
-        result = chat_controller.chat_rag(
-            db=db,
-            message=req.message,
-            top_k=req.top_k,
-            temperature=req.temperature,
-            system_prompt=req.system_prompt,
-        )
-    except ValueError as e:
-        # Typically: OPENAI_API_KEY not set
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"RAG chat failed: {e}")
-
-    return ChatResponse(**result)
+    return _to_chat_response(result)

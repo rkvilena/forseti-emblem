@@ -1,14 +1,11 @@
 from typing import Any, Dict
 
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..chapter_ingest import (
-    DuplicateChapterError,
-    ingest_chapter_to_db,
-    reingest_chapter_to_db,
-)
-from ..mediawiki_client import MediaWikiClient
+from ..application.ingestion.service import ChapterIngestionService
+from ..application.ports.wiki import WikiClient
+from ..infrastructure.mediawiki import MediaWikiWikiClient
+from ..infrastructure.persistence.repository import ChapterRepository
 from ..models import Chapter
 from ..parsers import (
     extract_tables_as_json,
@@ -18,7 +15,7 @@ from ..parsers import (
 )
 
 
-client = MediaWikiClient()
+client: WikiClient = MediaWikiWikiClient()
 
 
 def get_category_pages(
@@ -134,25 +131,14 @@ def ingest_chapter_from_wikitext(
     # Parse the wikitext
     chapter_data = parse_chapter_wikitext(wikitext)
 
-    # Ingest into database
-    try:
-        chapter = ingest_chapter_to_db(
-            db=db,
-            pageid=pageid,
-            title=page["title"],
-            chapter_data=chapter_data,
-            generate_embeddings=generate_embeddings,
-        )
-    except DuplicateChapterError as exc:
-        detail: dict[str, Any] = {
-            "message": str(exc),
-            "chapter_title": exc.chapter_title,
-            "game": exc.game,
-        }
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=detail,
-        ) from exc
+    # Ingest into database. A duplicate raises ``DuplicateChapterError``, which
+    # the centralized handler maps to HTTP 409 with the structured detail.
+    chapter = ChapterIngestionService(db).ingest(
+        pageid=pageid,
+        title=page["title"],
+        chapter_data=chapter_data,
+        generate_embeddings=generate_embeddings,
+    )
 
     return {
         "status": "success",
@@ -175,8 +161,7 @@ def reingest_chapter_from_wikitext(
 
     chapter_data = parse_chapter_wikitext(wikitext)
 
-    chapter = reingest_chapter_to_db(
-        db=db,
+    chapter = ChapterIngestionService(db).reingest(
         pageid=pageid,
         title=page["title"],
         chapter_data=chapter_data,
@@ -193,6 +178,23 @@ def reingest_chapter_from_wikitext(
     }
 
 
+def retry_chapter_embeddings(db: Session, chapter_id: int) -> Dict[str, Any]:
+    """Generate embeddings for a stored chapter's missing chunks.
+
+    A missing chapter raises ``ChapterNotFoundError`` (mapped to HTTP 404 by the
+    centralized handler); a provider failure raises ``EmbeddingError`` (503).
+    """
+
+    chapter = ChapterIngestionService(db).retry_embeddings(chapter_id)
+
+    return {
+        "status": "success",
+        "chapter_id": chapter.id,
+        "embedding_status": chapter.embedding_status,
+        "chunks_count": len(chapter.chunks),
+    }
+
+
 def _normalize_game_name(raw: str | None) -> str | None:
     if raw is None:
         return None
@@ -203,11 +205,9 @@ def _normalize_game_name(raw: str | None) -> str | None:
 
 
 def list_documented_chapters(db: Session) -> Dict[str, Any]:
-    chapters = (
-        db.query(Chapter)
-        .order_by(Chapter.game.is_(None), Chapter.game, Chapter.id)
-        .all()
-    )
+    # The repository shapes the query; grouping by game and normalizing the
+    # game label is presentation logic and stays here.
+    chapters = ChapterRepository(db).list_documented_chapters()
 
     groups: dict[str | None, list[Chapter]] = {}
     for chapter in chapters:
@@ -225,6 +225,7 @@ def list_documented_chapters(db: Session) -> Dict[str, Any]:
                         "title": c.title,
                         "infobox_title": c.infobox_title,
                         "game": _normalize_game_name(c.game),
+                        "embedding_status": c.embedding_status,
                     }
                     for c in game_chapters
                 ],

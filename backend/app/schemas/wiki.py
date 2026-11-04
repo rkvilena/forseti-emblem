@@ -88,6 +88,7 @@ class ChapterSummary(BaseModel):
     title: str
     infobox_title: str | None = None
     game: str | None = None
+    embedding_status: str = "pending"
 
 
 class GameChaptersGroup(BaseModel):
@@ -102,3 +103,12 @@ class ChapterListResponse(BaseModel):
 
     total_chapters: int
     games: list[GameChaptersGroup]
+
+
+class EmbeddingRetryResponse(BaseModel):
+    """Result of retrying embeddings for a stored chapter."""
+
+    status: str
+    chapter_id: int
+    embedding_status: str
+    chunks_count: int

@@ -2,9 +2,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.application.chat import service
+from app.application.chat.results import ChatResult
 from app.config import settings
 from app import rate_limit
-from app.routes import chat as chat_routes
 
 
 @pytest.fixture
@@ -44,6 +45,14 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         def __init__(self, store: dict[str, int]):
             self.store = store
 
+        def incr(self, key: str) -> int:
+            current = self.store.get(key, 0) + 1
+            self.store[key] = current
+            return current
+
+        def expire(self, key: str, ttl: int) -> bool:
+            return True
+
         def pipeline(self) -> FakePipeline:
             return FakePipeline(self.store)
 
@@ -52,20 +61,19 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     original_long_ip = settings.rate_limit_long_ip_requests
     original_session_long = settings.session_rate_limit_long_ip_requests
     original_turnstile_enabled = settings.turnstile_enabled
-    original_chat_rag = chat_routes.chat_controller.chat_rag
 
     settings.rate_limit_long_ip_requests = 100
     settings.session_rate_limit_long_ip_requests = 3
     settings.turnstile_enabled = False
 
-    def _fake_chat_rag(*args, **kwargs):  # type: ignore[no-untyped-def]
-        return {
-            "response": "ok",
-            "model": "test-model",
-            "usage": None,
-        }
+    def _fake_execute(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return ChatResult(
+            response="ok",
+            model="test-model",
+            usage=None,
+        )
 
-    chat_routes.chat_controller.chat_rag = _fake_chat_rag  # type: ignore[assignment]
+    monkeypatch.setattr(service.RagChatService, "execute", _fake_execute)
 
     try:
         yield TestClient(app)
@@ -73,7 +81,6 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         settings.rate_limit_long_ip_requests = original_long_ip
         settings.session_rate_limit_long_ip_requests = original_session_long
         settings.turnstile_enabled = original_turnstile_enabled
-        chat_routes.chat_controller.chat_rag = original_chat_rag  # type: ignore[assignment]
 
 
 def test_session_quota_sets_cookie_and_limits(client: TestClient) -> None:

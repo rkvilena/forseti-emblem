@@ -119,8 +119,10 @@ alembic -c alembic.ini upgrade head
 To wipe the database, use the repo-root script (requires the Postgres container to be running):
 
 ```bash
-bash ../resetdb.sh
+bash ../database/db-reset.sh
 ```
+
+To snapshot or reload data, see [`../database/README.md`](../database/README.md) (`db-dump.sh`, `db-restore.sh`).
 
 > **Warning:** this drops and recreates the database. All ingested chapters are lost. Afterwards, restart the backend so migrations recreate the tables, and re-ingest chapters.
 

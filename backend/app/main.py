@@ -6,9 +6,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .api.exception_handlers import register_exception_handlers
 from .config import settings
 from .db import check_db_connection, init_db, pgvector_available
 from .docs_auth import setup_docs_auth
+from .health import router as health_router
 from .routes import chat, wiki
 
 
@@ -54,6 +56,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Translate application exceptions into HTTP responses at one boundary.
+register_exception_handlers(app)
 
 docs_auth_enabled, docs_auth_mode = setup_docs_auth(app, logger=logger)
 
@@ -109,3 +114,4 @@ def get_config() -> dict:
 
 app.include_router(wiki.router)
 app.include_router(chat.router)
+app.include_router(health_router)

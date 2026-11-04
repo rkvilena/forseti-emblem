@@ -2,8 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.application.chat import service
+from app.application.chat.results import ChatResult
 from app.config import settings
-from app.routes import chat as chat_routes
 from app import rate_limit
 
 
@@ -44,6 +45,14 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         def __init__(self, store: dict[str, int]):
             self.store = store
 
+        def incr(self, key: str) -> int:
+            current = self.store.get(key, 0) + 1
+            self.store[key] = current
+            return current
+
+        def expire(self, key: str, ttl: int) -> bool:
+            return True
+
         def get(self, key: str) -> bytes | None:
             value = self.store.get(key)
             if value is None:
@@ -64,8 +73,6 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     original_cooldown_threshold = settings.session_cooldown_threshold
     original_cooldown_window = settings.session_cooldown_window_seconds
     original_cooldown_duration = settings.session_cooldown_duration_seconds
-    original_chat_rag = chat_routes.chat_controller.chat_rag
-    original_chat_plain = chat_routes.chat_controller.chat_plain
 
     settings.turnstile_enabled = False
     settings.rate_limit_long_ip_requests = 100
@@ -74,14 +81,14 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     settings.session_cooldown_window_seconds = 60
     settings.session_cooldown_duration_seconds = 60
 
-    def _fake_chat_rag(*args, **kwargs):  # type: ignore[no-untyped-def]
-        return {"response": "ok", "model": "test", "usage": None}
+    def _fake_rag(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return ChatResult(response="ok", model="test", usage=None)
 
-    def _fake_chat_plain(*args, **kwargs):  # type: ignore[no-untyped-def]
-        return {"response": "ok", "model": "test", "usage": None}
+    def _fake_plain(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return ChatResult(response="ok", model="test", usage=None)
 
-    chat_routes.chat_controller.chat_rag = _fake_chat_rag  # type: ignore[assignment]
-    chat_routes.chat_controller.chat_plain = _fake_chat_plain  # type: ignore[assignment]
+    monkeypatch.setattr(service.RagChatService, "execute", _fake_rag)
+    monkeypatch.setattr(service.PlainChatService, "execute", _fake_plain)
 
     try:
         yield TestClient(app)
@@ -92,8 +99,6 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         settings.session_cooldown_threshold = original_cooldown_threshold
         settings.session_cooldown_window_seconds = original_cooldown_window
         settings.session_cooldown_duration_seconds = original_cooldown_duration
-        chat_routes.chat_controller.chat_rag = original_chat_rag  # type: ignore[assignment]
-        chat_routes.chat_controller.chat_plain = original_chat_plain  # type: ignore[assignment]
 
 
 def test_message_length_limit_enforced_on_chat(client: TestClient) -> None:
@@ -135,11 +140,11 @@ def test_top_k_clamped_to_max(
 ) -> None:
     captured = {}
 
-    def _capture_chat_rag(*, db, message, top_k, temperature, system_prompt):  # type: ignore[no-untyped-def]
-        captured["top_k"] = top_k
-        return {"response": "ok", "model": "test", "usage": None}
+    def _capture_execute(self, command):  # type: ignore[no-untyped-def]
+        captured["top_k"] = command.top_k
+        return ChatResult(response="ok", model="test", usage=None)
 
-    monkeypatch.setattr(chat_routes.chat_controller, "chat_rag", _capture_chat_rag)
+    monkeypatch.setattr(service.RagChatService, "execute", _capture_execute)
 
     response = client.post(
         "/chat/rag",

@@ -181,6 +181,7 @@ Sources are filtered to only return chapters whose title or game appears in the 
 | GET | `/wiki/page/{title}/wikitext` | `raw` | Parse summary, infobox, sections from wikitext |
 | POST | `/wiki/page/{title}/ingest` | `generate_embeddings` (default true) | Fetch, parse, and store a chapter + chunks |
 | POST | `/wiki/page/{title}/reingest` | `generate_embeddings` (default true) | Rebuild chapter and chunks for an existing page |
+| POST | `/chapters/{chapter_id}/embeddings/retry` | — | Generate missing embeddings for an already-stored chapter |
 | GET | `/chapters` | — | List all ingested chapters grouped by game |
 
 `{title}` must match the wiki page title exactly and be URL-encoded, e.g. `Prologue%20(Blazing%20Blade)`.
@@ -197,10 +198,29 @@ Response (`WikiIngestResponse`) includes the `chapter_id` and `chunks_count`.
 
 Practical notes:
 
-- **`generate_embeddings=true` requires `OPENAI_API_KEY`.** With `false`, chunks are still stored but without embeddings — they won't be retrievable by RAG until re-ingested with embeddings.
+- **`generate_embeddings=true` requires `OPENAI_API_KEY`.** With `false`, chunks are still stored but without embeddings — they won't be retrievable by RAG until embeddings are generated.
 - **`/ingest` vs `/reingest`**: use `/ingest` for new pages; use `/reingest` to rebuild an already-stored chapter (e.g. after parser changes).
 - Embeddings are generated in batches; a batch failure stores the chunk without an embedding rather than aborting ingestion.
 - Verify results with `GET /chapters`, or through the frontend at `/chapters`.
+
+### Embedding status
+
+Every chapter carries an `embedding_status`:
+
+| Status | Meaning |
+| ------ | ------- |
+| `pending` | One or more chunks lack an embedding; the chapter is **not** returned by RAG retrieval. |
+| `searchable` | Every chunk carries an embedding; the chapter can be retrieved. |
+
+A chapter is stored as `pending` whenever embeddings are skipped (`generate_embeddings=false`) or fail, so a chapter that looks ingested is never silently mistaken for a searchable one. A successful embedding run marks it `searchable`. `GET /chapters` returns the status for each chapter.
+
+To make a `pending` chapter searchable without re-fetching or re-parsing the wiki page:
+
+```bash
+curl -X POST "http://localhost:8000/chapters/123/embeddings/retry"
+```
+
+The retry embeds only the chunks that currently lack an embedding and marks the chapter `searchable` once every chunk is embedded. It is idempotent (an already-searchable chapter is a no-op), returns `404` for an unknown chapter, and returns `503` when the embedding provider is unavailable — in which case the chapter stays `pending` and no partial data is written.
 
 ## RAG Internals
 
@@ -227,5 +247,5 @@ Practical notes:
 - Redis is required for chat routes: without a reachable `REDIS_URL`, chat endpoints return 500. Other endpoints (e.g. `/chapters`, `/health`) still work.
 - Turnstile requires `TURNSTILE_SECRET_KEY` server-side and a site key on the frontend; set `TURNSTILE_ENABLED=false` to run without it locally.
 - `DOCS_SESSION_SECRET` should be stored in Secret Manager in real deployments.
-- To wipe the database, use the root `resetdb.sh` (destructive), then restart the backend so migrations recreate the schema.
+- To wipe the database, use `database/db-reset.sh` (destructive), then restart the backend so migrations recreate the schema. `database/db-dump.sh` and `database/db-restore.sh` handle snapshotting and reloading; see [database/README.md](../database/README.md).
 - Unit tests cover cost controls, rate limiting, and session quotas (`backend/test/unit/`); how to run them is covered in [backend/README.md](../backend/README.md#development-commands).
