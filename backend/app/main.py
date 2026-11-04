@@ -10,6 +10,7 @@ from .api.exception_handlers import register_exception_handlers
 from .config import settings
 from .db import check_db_connection, init_db, pgvector_available
 from .docs_auth import setup_docs_auth
+from .health import router as health_router
 from .routes import chat, wiki
 
 
@@ -113,3 +114,4 @@ def get_config() -> dict:
 
 app.include_router(wiki.router)
 app.include_router(chat.router)
+app.include_router(health_router)
