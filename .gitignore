@@ -10,3 +10,11 @@ randomfile/
 
 **/__pycache__/
 **/.env
+
+# Database dumps (never commit — may contain production data)
+backups/local/*
+backups/prod/*
+!backups/local/.gitkeep
+!backups/prod/.gitkeep
+
+database/.env.prod

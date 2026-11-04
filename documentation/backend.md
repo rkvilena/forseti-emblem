@@ -247,5 +247,5 @@ The retry embeds only the chunks that currently lack an embedding and marks the 
 - Redis is required for chat routes: without a reachable `REDIS_URL`, chat endpoints return 500. Other endpoints (e.g. `/chapters`, `/health`) still work.
 - Turnstile requires `TURNSTILE_SECRET_KEY` server-side and a site key on the frontend; set `TURNSTILE_ENABLED=false` to run without it locally.
 - `DOCS_SESSION_SECRET` should be stored in Secret Manager in real deployments.
-- To wipe the database, use the root `resetdb.sh` (destructive), then restart the backend so migrations recreate the schema.
+- To wipe the database, use `database/db-reset.sh` (destructive), then restart the backend so migrations recreate the schema. `database/db-dump.sh` and `database/db-restore.sh` handle snapshotting and reloading; see [database/README.md](../database/README.md).
 - Unit tests cover cost controls, rate limiting, and session quotas (`backend/test/unit/`); how to run them is covered in [backend/README.md](../backend/README.md#development-commands).

@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
+# Destructively reset the LOCAL database: drop and recreate it, then re-add the
+# pgvector extension. For repeated data-related testing only.
+#
+#   bash database/db-reset.sh
+#
+# Local-only by design: it targets the local Docker container directly and can
+# never touch production. To populate from a snapshot afterwards, use
+# database/db-restore.sh; to save the current state first, use database/db-dump.sh.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
 
 DB_CONTAINER="${DB_CONTAINER:-forsetiemblem-db}"
 DB_NAME="${DB_NAME:-forsetiemblem}"
