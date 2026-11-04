@@ -19,7 +19,15 @@ from app.application.ingestion.models import ChapterDraft
 from app.application.ingestion.service import ChapterIngestionService
 from app.chapter_ingest import build_chapter_records_from_wikitext
 from app.db import Base
-from app.domain.exceptions import DuplicateChapterError
+from app.domain.embedding_status import (
+    EMBEDDING_STATUS_PENDING,
+    EMBEDDING_STATUS_SEARCHABLE,
+)
+from app.domain.exceptions import (
+    ChapterNotFoundError,
+    DuplicateChapterError,
+    EmbeddingError,
+)
 from app.models import Chapter, ChapterChunk
 
 from fakes import FakeEmbeddingProvider
@@ -236,6 +244,164 @@ def test_embedding_failure_still_persists_chunks_without_embeddings(
     assert chapter.chunks
     assert all(chunk.embedding is None for chunk in chapter.chunks)
     assert db.query(ChapterChunk).count() == 8
+
+
+# --------------------------------------------------------------------------- #
+# Embedding status
+# --------------------------------------------------------------------------- #
+
+
+def test_ingest_without_embeddings_marks_pending(db: Session) -> None:
+    chapter = ChapterIngestionService(db).ingest(
+        pageid=42,
+        title="Prologue",
+        chapter_data=_chapter_data(),
+        generate_embeddings=False,
+    )
+
+    assert chapter.embedding_status == EMBEDDING_STATUS_PENDING
+    assert all(chunk.embedding is None for chunk in chapter.chunks)
+
+
+def test_ingest_with_embeddings_marks_searchable(db: Session) -> None:
+    provider = FakeEmbeddingProvider(vector=EMBEDDING)
+
+    chapter = ChapterIngestionService(db, embedding_provider=provider).ingest(
+        pageid=42,
+        title="Prologue",
+        chapter_data=_chapter_data(),
+        generate_embeddings=True,
+    )
+
+    assert chapter.embedding_status == EMBEDDING_STATUS_SEARCHABLE
+    assert all(chunk.embedding is not None for chunk in chapter.chunks)
+
+
+def test_embedding_failure_marks_chapter_pending(db: Session) -> None:
+    chapter = ChapterIngestionService(
+        db, embedding_provider=_BrokenEmbeddingProvider()
+    ).ingest(
+        pageid=42,
+        title="Prologue",
+        chapter_data=_chapter_data(),
+        generate_embeddings=True,
+    )
+
+    assert chapter.embedding_status == EMBEDDING_STATUS_PENDING
+    assert all(chunk.embedding is None for chunk in chapter.chunks)
+
+
+def test_reingest_without_embeddings_marks_pending(db: Session) -> None:
+    provider = FakeEmbeddingProvider(vector=EMBEDDING)
+    ChapterIngestionService(db, embedding_provider=provider).ingest(
+        pageid=42,
+        title="Prologue",
+        chapter_data=_chapter_data(),
+        generate_embeddings=True,
+    )
+
+    updated = ChapterIngestionService(db).reingest(
+        pageid=42,
+        title="Prologue",
+        chapter_data=_chapter_data(),
+        generate_embeddings=False,
+    )
+
+    assert updated.embedding_status == EMBEDDING_STATUS_PENDING
+    assert all(chunk.embedding is None for chunk in updated.chunks)
+
+
+# --------------------------------------------------------------------------- #
+# Embedding retry
+# --------------------------------------------------------------------------- #
+
+
+def test_retry_embeddings_fills_missing_and_marks_searchable(db: Session) -> None:
+    chapter = ChapterIngestionService(db).ingest(
+        pageid=42,
+        title="Prologue",
+        chapter_data=_chapter_data(),
+        generate_embeddings=False,
+    )
+    assert chapter.embedding_status == EMBEDDING_STATUS_PENDING
+
+    provider = FakeEmbeddingProvider(vector=EMBEDDING)
+    result = ChapterIngestionService(db, embedding_provider=provider).retry_embeddings(
+        chapter.id
+    )
+
+    assert result.embedding_status == EMBEDDING_STATUS_SEARCHABLE
+    assert all(chunk.embedding is not None for chunk in result.chunks)
+    assert len(provider.embedded_batches[0]) == len(result.chunks)
+
+
+def test_retry_embeddings_embeds_only_missing_chunks(db: Session) -> None:
+    chapter = ChapterIngestionService(db).ingest(
+        pageid=42,
+        title="Prologue",
+        chapter_data=_chapter_data(),
+        generate_embeddings=False,
+    )
+    total = len(chapter.chunks)
+    chapter.chunks[0].embedding = EMBEDDING
+    db.commit()
+
+    provider = FakeEmbeddingProvider(vector=EMBEDDING)
+    result = ChapterIngestionService(db, embedding_provider=provider).retry_embeddings(
+        chapter.id
+    )
+
+    assert len(provider.embedded_batches[0]) == total - 1
+    assert result.embedding_status == EMBEDDING_STATUS_SEARCHABLE
+    assert all(chunk.embedding is not None for chunk in result.chunks)
+
+
+def test_retry_embeddings_when_searchable_is_idempotent(db: Session) -> None:
+    provider = FakeEmbeddingProvider(vector=EMBEDDING)
+    chapter = ChapterIngestionService(db, embedding_provider=provider).ingest(
+        pageid=42,
+        title="Prologue",
+        chapter_data=_chapter_data(),
+        generate_embeddings=True,
+    )
+    assert chapter.embedding_status == EMBEDDING_STATUS_SEARCHABLE
+
+    retry_provider = FakeEmbeddingProvider(vector=EMBEDDING)
+    result = ChapterIngestionService(
+        db, embedding_provider=retry_provider
+    ).retry_embeddings(chapter.id)
+
+    assert result.embedding_status == EMBEDDING_STATUS_SEARCHABLE
+    assert retry_provider.embedded_batches == []
+    assert db.query(Chapter).count() == 1
+
+
+def test_retry_embeddings_provider_failure_raises_and_stays_pending(
+    db: Session,
+) -> None:
+    chapter = ChapterIngestionService(db).ingest(
+        pageid=42,
+        title="Prologue",
+        chapter_data=_chapter_data(),
+        generate_embeddings=False,
+    )
+    chapter_id = chapter.id
+
+    with pytest.raises(EmbeddingError):
+        ChapterIngestionService(
+            db, embedding_provider=_BrokenEmbeddingProvider()
+        ).retry_embeddings(chapter_id)
+
+    db.expire_all()
+    stored = db.get(Chapter, chapter_id)
+    assert stored is not None
+    assert stored.embedding_status == EMBEDDING_STATUS_PENDING
+    assert all(chunk.embedding is None for chunk in stored.chunks)
+
+
+def test_retry_embeddings_missing_chapter_raises(db: Session) -> None:
+    with pytest.raises(ChapterNotFoundError):
+        ChapterIngestionService(db).retry_embeddings(12345)
 
 
 # --------------------------------------------------------------------------- #

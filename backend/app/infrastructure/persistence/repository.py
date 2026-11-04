@@ -47,6 +47,11 @@ class ChapterRepository:
 
         return self._db.query(Chapter).filter(Chapter.pageid == pageid).first()
 
+    def find_by_id(self, chapter_id: int) -> Chapter | None:
+        """Return the chapter with this primary key, if any."""
+
+        return self._db.get(Chapter, chapter_id)
+
     def find_by_title_and_game(
         self,
         title: str,
@@ -136,6 +141,32 @@ class ChapterRepository:
             f"Reingested chapter: {draft.title} with {len(draft.chunks)} chunks",
         )
 
+    def save_embeddings(
+        self,
+        chapter: Chapter,
+        embeddings_by_chunk_id: dict[int, list[float]],
+        *,
+        status: str,
+    ) -> Chapter:
+        """Persist newly generated embeddings for a chapter and set its status.
+
+        Only chunks present in ``embeddings_by_chunk_id`` are updated, so a retry
+        that fills in missing embeddings never rewrites vectors that already
+        exist. The caller decides the resulting ``status`` (business meaning);
+        this method owns only the write and the commit/rollback boundary.
+        """
+
+        for chunk in chapter.chunks:
+            embedding = embeddings_by_chunk_id.get(chunk.id)
+            if embedding is not None:
+                chunk.embedding = embedding
+        chapter.embedding_status = status
+
+        return self._commit(
+            chapter,
+            f"Updated embeddings for chapter {chapter.id} (status={status})",
+        )
+
     def _commit(self, chapter: Chapter, message: str) -> Chapter:
         try:
             self._db.add(chapter)
@@ -161,6 +192,7 @@ def _to_chapter(draft: ChapterDraft) -> Chapter:
         boss=draft.boss,
         source_url=draft.source_url,
         raw_infobox=draft.raw_infobox,
+        embedding_status=draft.embedding_status,
     )
 
 
@@ -187,3 +219,4 @@ def _apply_draft(chapter: Chapter, draft: ChapterDraft) -> None:
     chapter.boss = draft.boss
     chapter.raw_infobox = draft.raw_infobox
     chapter.source_url = draft.source_url
+    chapter.embedding_status = draft.embedding_status

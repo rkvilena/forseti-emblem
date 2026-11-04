@@ -178,6 +178,23 @@ def reingest_chapter_from_wikitext(
     }
 
 
+def retry_chapter_embeddings(db: Session, chapter_id: int) -> Dict[str, Any]:
+    """Generate embeddings for a stored chapter's missing chunks.
+
+    A missing chapter raises ``ChapterNotFoundError`` (mapped to HTTP 404 by the
+    centralized handler); a provider failure raises ``EmbeddingError`` (503).
+    """
+
+    chapter = ChapterIngestionService(db).retry_embeddings(chapter_id)
+
+    return {
+        "status": "success",
+        "chapter_id": chapter.id,
+        "embedding_status": chapter.embedding_status,
+        "chunks_count": len(chapter.chunks),
+    }
+
+
 def _normalize_game_name(raw: str | None) -> str | None:
     if raw is None:
         return None
@@ -208,6 +225,7 @@ def list_documented_chapters(db: Session) -> Dict[str, Any]:
                         "title": c.title,
                         "infobox_title": c.infobox_title,
                         "game": _normalize_game_name(c.game),
+                        "embedding_status": c.embedding_status,
                     }
                     for c in game_chapters
                 ],

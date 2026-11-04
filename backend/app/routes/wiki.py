@@ -5,6 +5,7 @@ from ..controllers import wiki_controller
 from ..db import get_db
 from ..schemas.wiki import (
     ChapterListResponse,
+    EmbeddingRetryResponse,
     WikiCategoryPagesResponse,
     WikiIngestResponse,
     WikiPageHtmlResponse,
@@ -108,3 +109,21 @@ def list_documented_chapters(db: Session = Depends(get_db)) -> ChapterListRespon
 
     data = wiki_controller.list_documented_chapters(db=db)
     return ChapterListResponse.model_validate(data)
+
+
+@router.post(
+    "/chapters/{chapter_id}/embeddings/retry",
+    response_model=EmbeddingRetryResponse,
+)
+def retry_chapter_embeddings(
+    chapter_id: int,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Generate missing embeddings for an already-stored chapter.
+
+    Unlike ``/reingest`` this does not re-fetch or re-parse the wiki page; it
+    embeds only the chunks that currently lack an embedding and marks the
+    chapter ``searchable`` when every chunk is embedded.
+    """
+
+    return wiki_controller.retry_chapter_embeddings(db=db, chapter_id=chapter_id)

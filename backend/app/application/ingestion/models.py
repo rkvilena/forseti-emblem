@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from ...domain.embedding_status import EMBEDDING_STATUS_PENDING
+
 
 @dataclass(frozen=True)
 class ChunkDraft:
@@ -38,3 +40,4 @@ class ChapterDraft:
     source_url: str | None
     raw_infobox: dict[str, Any]
     chunks: list[ChunkDraft]
+    embedding_status: str = EMBEDDING_STATUS_PENDING

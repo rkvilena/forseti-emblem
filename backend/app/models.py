@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
+from .domain.embedding_status import EMBEDDING_STATUS_PENDING
 
 
 class Chapter(Base):
@@ -32,6 +33,12 @@ class Chapter(Base):
     boss: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     raw_infobox: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    embedding_status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=EMBEDDING_STATUS_PENDING,
+        server_default=EMBEDDING_STATUS_PENDING,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )
