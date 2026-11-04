@@ -167,15 +167,18 @@ def test_context_builder_preserves_chunk_order() -> None:
 def test_context_builder_respects_char_budget() -> None:
     chunk = _chunk(_chapter(), text="x" * 100)
 
+    # 10 chars budget should exclude the block entirely
     assert build_context_from_chunks([chunk], ContextBudget(max_chars=10)) == ""
+    # The historic 8_000 default has been increased; still large enough to
+    # contain a single chunk.
     assert build_context_from_chunks([chunk], ContextBudget(max_chars=8000)) != ""
 
 
 def test_context_budget_defaults() -> None:
     budget = ContextBudget()
 
-    assert budget.max_chars == 8000
-    assert budget.max_chunks is None
+    assert budget.max_chars == 12_000
+    assert budget.max_chunks == 16
 
 
 def test_context_builder_class_delegates() -> None:
