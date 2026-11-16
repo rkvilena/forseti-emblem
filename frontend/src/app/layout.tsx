@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "@/styles/globals.css";
 import { nocturneSerif } from "@/styles/fonts";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Forsetiemblem - Fire Emblem Chapter Assistant",
@@ -36,7 +37,7 @@ export default function RootLayout({
           async
           defer
         />
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
