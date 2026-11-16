@@ -1,44 +1,21 @@
 /**
  * Chat-related TypeScript types
- * Mirrors the backend Pydantic schemas
+ *
+ * Backend request/response contracts come from the checked-in OpenAPI types in
+ * `generated-api.ts`. Regenerate them with `npm run generate:api-types`.
  */
 
-export interface ChatUsage {
-  prompt_tokens: number | null;
-  completion_tokens: number | null;
-  total_tokens: number | null;
-}
+import type { components } from "./generated-api";
 
-export interface SourceReference {
-  title: string;
-  infobox_title: string | null;
-  game: string | null;
-  pageid: number;
-  source_url: string | null;
-}
+export type ChatUsage = components["schemas"]["ChatUsage"];
 
-export interface ChatResponse {
-  response: string;
-  model: string;
-  usage: ChatUsage | null;
-  sources?: SourceReference[] | null;
-}
+export type SourceReference = components["schemas"]["SourceReference"];
 
-export interface ChatRequest {
-  message: string;
-  turnstile_token?: string | null;
-  system_prompt?: string | null;
-  context?: string | null;
-  temperature?: number;
-}
+export type ChatResponse = components["schemas"]["ChatResponse"];
 
-export interface RagChatRequest {
-  message: string;
-  turnstile_token?: string | null;
-  top_k?: number;
-  temperature?: number;
-  system_prompt?: string | null;
-}
+export type ChatRequest = components["schemas"]["ChatRequest"];
+
+export type RagChatRequest = components["schemas"]["RagChatRequest"];
 
 // Frontend-specific types for UI state
 export type MessageRole = "user" | "assistant";

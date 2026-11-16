@@ -225,6 +225,7 @@ def list_documented_chapters(db: Session) -> Dict[str, Any]:
                         "title": c.title,
                         "infobox_title": c.infobox_title,
                         "game": _normalize_game_name(c.game),
+                        "source_url": c.source_url,
                         "embedding_status": c.embedding_status,
                     }
                     for c in game_chapters

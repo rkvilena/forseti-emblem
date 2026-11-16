@@ -88,6 +88,7 @@ class ChapterSummary(BaseModel):
     title: str
     infobox_title: str | None = None
     game: str | None = None
+    source_url: str | None = None
     embedding_status: str = "pending"
 
 

@@ -39,9 +39,27 @@ The canonical annotated list lives in `.env.example`.
 | `npm run start` | Start production server |
 | `npm run lint` | Run ESLint |
 | `npm run type-check` | Run TypeScript type checking |
+| `npm run generate:api-types` | Regenerate `src/types/generated-api.ts` from the local FastAPI schema |
 | `npm run format` | Prettier formatting |
 
 Or use `./start.sh`, which installs dependencies if needed and starts the dev server.
+
+### API Type Generation
+
+Backend contracts are generated from the FastAPI app's OpenAPI schema, which is
+read locally in-process — no running server and no database connection needed:
+
+```bash
+cd frontend
+npm run generate:api-types
+```
+
+The command runs `backend/scripts/export_openapi.py` and writes the checked-in
+result to `src/types/generated-api.ts`. If the backend `.env` is unavailable,
+the exporter supplies a placeholder `DATABASE_URL`; importing the app builds a
+lazy SQLAlchemy engine but never connects. If you export it yourself, the only
+required setting is `DATABASE_URL`. Commit the regenerated file with the backend
+schema change.
 
 ## Project Structure
 

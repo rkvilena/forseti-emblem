@@ -1,44 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import type { ChapterListResponse } from "@/types";
 import { Sidebar } from "@/components/chat";
 import { MainLogo } from "@/components/brand/main-logo";
 
 export default function ChaptersPage() {
-  const [data, setData] = useState<ChapterListResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const {
+    data,
+    error,
+    isLoading,
+  } = useQuery({
+    queryKey: ["chapters"],
+    queryFn: () => apiClient.listChapters(),
+  });
 
-  useEffect(() => {
-    let isMounted = true;
+  const groups = useMemo(() => data?.games ?? [], [data]);
 
-    apiClient
-      .listChapters()
-      .then((response) => {
-        if (!isMounted) return;
-        setData(response);
+  const normalizedQuery = searchTerm.trim().toLowerCase();
+
+  const filteredGroups = useMemo(() => {
+    if (!normalizedQuery) {
+      return groups;
+    }
+
+    return groups
+      .map((group) => {
+        const gameName = group.game ?? "Unknown game";
+        const gameMatches = gameName.toLowerCase().includes(normalizedQuery);
+        const chapters = gameMatches
+          ? group.chapters
+          : group.chapters.filter(
+              (chapter) =>
+                chapter.title.toLowerCase().includes(normalizedQuery) ||
+                (chapter.infobox_title ?? "")
+                  .toLowerCase()
+                  .includes(normalizedQuery),
+            );
+
+        return { ...group, chapters };
       })
-      .catch((err) => {
-        if (!isMounted) return;
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load documented chapters.",
-        );
-      })
-      .finally(() => {
-        if (!isMounted) return;
-        setIsLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const groups = data?.games ?? [];
+      .filter((group) => group.chapters.length > 0);
+  }, [groups, normalizedQuery]);
 
   return (
     <div className="relative isolate flex h-screen max-h-screen overflow-hidden bg-surface-base">
@@ -70,17 +75,41 @@ export default function ChaptersPage() {
               </p>
             </header>
 
+            {!isLoading && !error && groups.length > 0 && (
+              <div>
+                <label htmlFor="chapter-search" className="sr-only">
+                  Search chapters
+                </label>
+                <input
+                  id="chapter-search"
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search by game or chapter name..."
+                  className="w-full border border-brand-gold/70 bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-teal/60"
+                />
+              </div>
+            )}
+
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading...</p>
             ) : error ? (
-              <p className="text-sm text-destructive">{error}</p>
+              <p className="text-sm text-destructive">
+                {error instanceof Error
+                  ? error.message
+                  : "Failed to load documented chapters."}
+              </p>
             ) : groups.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No chapters have been ingested yet.
               </p>
+            ) : filteredGroups.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No chapters match &ldquo;{searchTerm.trim()}&rdquo;.
+              </p>
             ) : (
               <div className="grid gap-6 md:grid-cols-2 pb-6">
-                {groups.map((group) => {
+                {filteredGroups.map((group) => {
                   const gameName = group.game ?? "Unknown game";
 
                   return (
@@ -111,7 +140,18 @@ export default function ChaptersPage() {
 
                           return (
                             <li key={chapter.id} className="leading-snug">
-                              {displayTitle}
+                              {chapter.source_url ? (
+                                <a
+                                  href={chapter.source_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-foreground transition-colors hover:text-brand-gold focus-visible:text-brand-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated"
+                                >
+                                  {displayTitle}
+                                </a>
+                              ) : (
+                                displayTitle
+                              )}
                             </li>
                           );
                         })}

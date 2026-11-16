@@ -1,6 +1,13 @@
 /**
  * API-related types
+ *
+ * Backend request/response contracts come from the checked-in OpenAPI types in
+ * `generated-api.ts`. Regenerate them with `npm run generate:api-types`.
+ * Types defined directly here are frontend-only or describe endpoints that the
+ * backend does not model with a Pydantic schema.
  */
+
+import type { components } from "./generated-api";
 
 export interface HealthResponse {
   status: string;
@@ -25,20 +32,8 @@ export interface ConfigResponse {
   log_level: string;
 }
 
-export interface ChapterSummary {
-  id: number;
-  title: string;
-  infobox_title: string | null;
-  game: string | null;
-  embedding_status: "pending" | "searchable";
-}
+export type ChapterSummary = components["schemas"]["ChapterSummary"];
 
-export interface GameChaptersGroup {
-  game: string | null;
-  chapters: ChapterSummary[];
-}
+export type GameChaptersGroup = components["schemas"]["GameChaptersGroup"];
 
-export interface ChapterListResponse {
-  total_chapters: number;
-  games: GameChaptersGroup[];
-}
+export type ChapterListResponse = components["schemas"]["ChapterListResponse"];
